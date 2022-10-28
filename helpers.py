@@ -75,9 +75,9 @@ def averageOfAll(scores):
         # p2 = ['2000m','2000m','2000m']
         # p3 = ['4000m', '3000m','2000m', '2000m']
 
-        # print(autoTitle(p1))
-        # print(autoTitle(p2))
-        # print(autoTitle(p3))
+        #print(autoTitle(p1))
+        #print(autoTitle(p2))
+        #print(autoTitle(p3))
 #     time6k = datetime.time(minute=20, second=32, microsecond=500000)
 #     distance6k = 6000
 #     ## should be 1:42.5
