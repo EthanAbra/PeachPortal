@@ -1,0 +1,17 @@
+Flask==1.1.2
+bcrypt==3.2.0
+bcrypt==3.2.0
+datetime
+dbfread==2.0.7
+dnspython
+flask-login==0.4.1
+flask-sslify==0.1.5
+gunicorn==20.0.4
+openpyxl
+pandas
+psycopg2-binary
+pymongo
+pytz
+requests
+urllib3==1.26.4
+xlsxwriter
