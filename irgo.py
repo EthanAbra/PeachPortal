@@ -329,11 +329,6 @@ def signup():
                 "side" : side,
                 "class" : classYr,
                 "active" : True,
-                "awards" : {
-                    "earc" : [],
-                    "ira" : [],
-                    "shirts" : []
-                },
                 "teamId" : team
             }
             # add athlete document to athlete db

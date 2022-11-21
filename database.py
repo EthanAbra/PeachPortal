@@ -6,7 +6,12 @@ import os
 import bcrypt
 import pickle
 import random
+import certifi
 
+
+
+
+ca = certifi.where()
 
 if 'database_url' not in os.environ:
     from dotenv import load_dotenv
@@ -14,8 +19,11 @@ if 'database_url' not in os.environ:
     CONNECTION_STRING = os.environ.get('database_url')
 else:
     CONNECTION_STRING = os.environ['database_url']
+
+# print(os.environ)
+# print(CONNECTION_STRING)
     
-DBNAME = 'irgo'
+DBNAME = 'peach'
 ATHLETE_COLLECTION = 'athletes'
 WORKOUT_COLLECTION = 'workouts'
 CREDENTIALS_COLLECTION = 'credentials'
@@ -25,12 +33,13 @@ TEAMS_COLLECTION = 'teams'
 # General Database methods
 
 def getDatabase():
-    client = pymongo.MongoClient(CONNECTION_STRING)
+    client = pymongo.MongoClient(CONNECTION_STRING, tlsCAFile=ca)
     return client[DBNAME]
 
 def getCollection(collection):
     try:
         dbname = getDatabase()
+        print(dbname)
         return dbname[collection]
     except Exception as e:
         print(str(e))
@@ -39,7 +48,7 @@ def getCollection(collection):
 # general athlete collection methods 
 
 def addAthlete(athleteDict):
-    # print(f'addAthlete called with {athleteDict}')
+    print(f'addAthlete called with {athleteDict}')
     try:
         collection_name = getCollection(ATHLETE_COLLECTION)
         result = collection_name.insert_one(athleteDict)
@@ -49,7 +58,7 @@ def addAthlete(athleteDict):
         return None
 
 def editAthlete(athleteId, field, newVal):
-    # print(f'editAthlete called with {athleteId}, {field}, {newVal}')
+    print(f'editAthlete called with {athleteId}, {field}, {newVal}')
     try:
         collection_name = getCollection(ATHLETE_COLLECTION)
         result = collection_name.update_one({'_id' : athleteId}, {'$set' : {field : newVal}})
@@ -59,7 +68,7 @@ def editAthlete(athleteId, field, newVal):
         return None
 
 def queryAthlete(athleteId):
-    # print(f'queryAthlete called with {athleteId}')
+    print(f'queryAthlete called with {athleteId}')
     try:
         athleteId = int(athleteId)
         collection_name = getCollection(ATHLETE_COLLECTION)
@@ -69,7 +78,7 @@ def queryAthlete(athleteId):
         return None
 
 def queryAthleteByName(first, last):
-    # print(f'queryAthleteByName called with {first} {last}')
+    print(f'queryAthleteByName called with {first} {last}')
     try:
         collection_name = getCollection(ATHLETE_COLLECTION)
         return collection_name.find_one({'first' : first, 'last' : last})
@@ -109,7 +118,7 @@ def removeWorkoutFromAthlete(athleteId, workoutId):
 # general workout collection methods 
 
 def addWorkout(workoutDict, teamId):
-    # print(f'addworkout called with {workoutDict}, {teamId}')
+    print(f'addworkout called with {workoutDict}, {teamId}')
     try:
         collection_name = getCollection(WORKOUT_COLLECTION)
         workoutDict['teamId'] = teamId
@@ -120,7 +129,7 @@ def addWorkout(workoutDict, teamId):
         return None
 
 def editWorkout(workoutId, field, newVal):
-    # print(f'editWorkout called with {workoutId}, {field}, {newVal}')
+    print(f'editWorkout called with {workoutId}, {field}, {newVal}')
     try:
         collection_name = getCollection(WORKOUT_COLLECTION)
         result = collection_name.update_one({'_id' : workoutId}, {'$set' : {field : newVal}})
@@ -130,7 +139,7 @@ def editWorkout(workoutId, field, newVal):
         return None
 
 def queryWorkout(workoutId):
-    # print(f'queryWorkout called with {workoutId}')
+    print(f'queryWorkout called with {workoutId}')
     try:
         workoutId = int(workoutId)
         collection_name = getCollection(WORKOUT_COLLECTION)
@@ -143,7 +152,7 @@ def queryWorkout(workoutId):
         return None
 
 def deleteWorkout(workoutId):
-    # print(f'deleteWorkout called with {workoutId}')
+    print(f'deleteWorkout called with {workoutId}')
     try:
         collection_name = getCollection(WORKOUT_COLLECTION)
         result = collection_name.delete_one({'_id' : workoutId})
@@ -153,7 +162,7 @@ def deleteWorkout(workoutId):
         return None
 
 def getAllWorkouts(teamId, sort_by='date'):
-    # print(f'getAllWorkouts called with {teamId}')
+    print(f'getAllWorkouts called with {teamId}')
     try:
         collection_name = getCollection(WORKOUT_COLLECTION)
         return collection_name.find({'teamId' : teamId}, sort=[(sort_by, pymongo.DESCENDING)])
@@ -164,7 +173,7 @@ def getAllWorkouts(teamId, sort_by='date'):
 # ------------------------------------------------------------------ # 
 # general team db methods
 def queryTeam(teamId):
-    # print(f'queryTeam called with {teamId}')
+    print(f'queryTeam called with {teamId}')
     try:
         teamId = int(teamId)
         collection_name = getCollection(TEAMS_COLLECTION)
@@ -175,7 +184,7 @@ def queryTeam(teamId):
         return None
 
 def addTeam(name):
-    # print(f'addTeam called with {name}')
+    print(f'addTeam called with {name}')
     try:
         teamId = random.randint(10, 999999)
         # ensure no id collision
@@ -231,7 +240,7 @@ def getScoreByAthlete(athleteId, workoutId):
 # ------------------------------------------------------------------- #
 # add an athlete to the credentials database
 def addCredentials(athleteId, email, pwHash, salt):
-    # print(f'addCredentials called with {athleteId}, {email}')
+    print(f'addCredentials called with {athleteId}, {email}')
     try:
         collection_name = getCollection(CREDENTIALS_COLLECTION)
         newCreds = {
@@ -248,7 +257,7 @@ def addCredentials(athleteId, email, pwHash, salt):
 
 
 def getCredentials(email):
-    # print(f'getCredentials called with {email}')
+    print(f'getCredentials called with {email}')
     try:
         collection_name = getCollection(CREDENTIALS_COLLECTION)
         result = collection_name.find_one({'email' : email})
@@ -380,8 +389,8 @@ if __name__ == "__main__":
 
 
     # creds = getCredentials('hjv@princeton.edu')
-    # print(creds)
-    # print(bcrypt.checkpw(b'sugmaLigma', creds['pwHash']))
+    print(creds)
+    print(bcrypt.checkpw(b'sugmaLigma', creds['pwHash']))
 
     # for a in getAllAthletes(1, sort_by='class'):
     #     pprint(a)
@@ -391,9 +400,9 @@ if __name__ == "__main__":
     # # for z in getScoreByAthlete(69,2):
     # #     pprint(z)
 
-    # print(editAthlete(69, 'first', 'wiener'))
+    print(editAthlete(69, 'first', 'wiener'))
 
-    # print(editWorkout(75, 'title', "10k, 10x(30' on, 1:30 off)"))
+    print(editWorkout(75, 'title', "10k, 10x(30' on, 1:30 off)"))
     print(getAllAthletes(1887))
     for athlete in getAllAthletes(1887):
         print(removeWorkoutFromAthlete(athlete['id'], 92))
