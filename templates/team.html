@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <title>PeachPortal - Manage team</title>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+                <div class="container-fluid">
+                <a class="navbar-brand" href="/home"><h1><em>PeachPortal</em></h1></a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="/about">About</a>
+                    </li>
+                    </ul>
+                </div>
+                </div>
+            </nav>
+
+            <div class="card" style="width: 100%; ">
+            
+                <div class="card-body">
+                    <form id='teamForm' action="/team" method="POST">
+                    <div class="row">
+                        <div class="col-8">
+                            <h3>{{teamName}}</h3>
+                            <h5>Team id: {{athletes[0]['teamId']}}</h5>
+                            <h5>Signup link: <a href="/signup?t={{athletes[0]['teamId']}}">irgo.herokuapp.com/signup?t={{athletes[0]['teamId']}}</a></h5>
+                        </div>
+                        <div class="col-4">
+                            <button type="submit" id="submitButton" class="btn btn-secondary btn-block" disabled>Save Changes</button>
+                        </div>
+                    </div>
+                        <table class="table" style="height: 10%; overflow: scroll;">
+                            <thead>
+                              <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Side</th>
+                                <th scope="col">Class</th>
+                                <th scope="col">Active</th>
+                                <th scope="col">Permissions</th>
+                              </tr>
+                            </thead>
+                                <tbody>
+                                    {% for athlete in athletes %}
+                                    {% set id = athlete['_id'] %}
+                                        <tr>
+                                            <th style="width: 35%;" scope="row">
+                                                <input type="text" name='first_{{id}}' value="{{athlete['first']}}" />
+                                                <input type="text" name='last_{{id}}' value="{{athlete['last']}}" />
+                                            </th>
+                                            <td style="width: 15%;">
+                                                <select class='form-control' name='side_{{id}}'>
+                                                    <option value="port" {% if athlete["side"] == 'port' %} selected {% endif %}>Port</option>
+                                                    <option value="starboard" {% if athlete["side"] == 'starboard' %} selected {% endif %}>Starboard</option>
+                                                    <option value="cox" {% if athlete["side"] == 'cox' %} selected {% endif %}>Coxswain</option>
+                                                </select>
+                                            </td>
+                                            <td style="width: 15%;">
+                                                <input type="number" name="class_{{id}}" value="{{athlete['class']}}">
+                                            </td>
+                                            <td style="width: 15%;">
+                                                <input type="checkbox" id='active' name='active_{{id}}' {% if athlete['active'] %} checked {% endif %}>
+                                                <label for='active'>Active</label>
+                                            </td>
+                                            <td>
+                                                <select class='form-control' name='permissions_{{id}}'>
+                                                    <option value="admin" {% if 'admin' in athlete["permissions"]  %} selected {% endif %}>Admin</option>
+                                                    <option value="none" {% if 'admin' not in athlete["permissions"] %} selected {% endif %}>None</option>
+                                                </select>
+                                            </td>
+                                            <!-- <td>
+                                                <form action="/delete" method="POST">
+                                                    <input type="hidden" value="{{athlete['_id']}}">
+                                                <button type="submit" class="btn btn-danger">Delete</button>
+                                            </td> -->
+                                            </form>
+
+                                            </div>
+                                        </tr>
+                                    </form>
+
+                                    {% endfor %}
+                                    </tbody>
+                            
+                        </table>
+
+                </div>
+            </div>
+
+
+        </div>
+
+        <script>
+            $("select").change(function(){
+                $("#submitButton").attr('disabled', false).attr('class', 'btn btn-primary btn-block');
+            });
+            $("input").change(function(){
+                $("#submitButton").attr('disabled', false).attr('class', 'btn btn-primary btn-block');
+            });
+        </script>
+
+
+
+
+        <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='main.js') }}"></script>     
+    </body>
+</html>

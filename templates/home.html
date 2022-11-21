@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+        <title>irgo - Home</title>
+        <script src="https://code.jquery.com/jquery-3.6.0.slim.js"   integrity="sha256-HwWONEZrpuoh951cQD1ov2HUK5zA5DwJ1DNUXaM6FsY="   crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+                <div class="container-fluid">
+                <a class="navbar-brand" href="/home"><h1><em>irgo</em></h1></a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="/about">About</a>
+                        <a class="nav-link active" aria-current="page" href="/logout">Log out</a>
+                    </li>
+                    </ul>
+                </div>
+                </div>
+            </nav>
+
+            <div>
+                <h1 style="text-align: center;">
+                    Welcome back, {{first}}
+                </h1>
+            </div>
+
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col card text-center" style="margin: 1rem;">
+                        <div class="row">
+                            <div class="col-8">
+                                <h3>Workouts</h3>
+                            </div>
+                            <div class="col-4">
+                                <a href="/workouts" class="btn btn-primary btn-block" >Go</a>    
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col card text-center" style="margin: 1rem;">
+                        <div class="row">
+                            <div class="col-8">
+                                <h3>Profile</h3>
+                            </div>
+                            <div class="col-4">
+                                <a href="/profile" class="btn btn-primary btn-block" >Go</a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                {% if 'cox' in perms or 'admin' in perms %}
+                <div class="row">
+                    <div class="col card text-center" style="margin: 1rem;">
+                        <div class="row">
+                            <div class="col-8">
+                                <div class="row-4"><br></div>
+                                <div class="row-4"><h3>Upload workout</h3></div>
+                                <div class="row-4"><a href="/howToUpload">(How to upload a workout)</a></div>
+                            </div>
+                            <div class="col-4">
+                                <a href="/download" class="btn btn-secondary btn-block">Blank Sheet</a>
+                                <form method="POST" action="/upload" enctype="multipart/form-data" id="upload">
+                                    <input type="file" name="sheet" id="file" class="btn btn-primary btn-block" hidden/>
+                                    <label for="file" class="btn btn-primary btn-block">Upload Sheet</label>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                            
+
+                {% if 'admin' in perms %}
+                <div class="row">
+                    <div class="col card text-center" style="margin: 1rem;">
+                        <div class="row">
+                            <div class="col-8">
+                                <h3>Manage team</h3>
+                            </div>
+                            <div class="col-4">
+                                <a href="/team" class="btn btn-primary stretched-link btn-block" >Go</a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                {% endif %}
+                </div>
+
+
+                
+            </div>
+
+
+        </div>
+        {% if request.args.get('e') %}
+            <script>
+                alert("{{request.args.get('em')}}");
+            </script>
+        {% endif %}
+
+        <script>
+            $("#file").change(function () {
+            $("#upload").submit();
+            });
+        </script>
+        
+        <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='main.js') }}"></script>     
+    </body>
+</html>

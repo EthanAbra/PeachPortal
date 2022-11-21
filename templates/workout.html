@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <title>Workout: {{workout['title']}}</title>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+                <div class="container-fluid">
+                <a class="navbar-brand" href="/home"><h1><em>PeachPortal</em></h1></a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="/about">About</a>
+                        <a class="nav-link active" aria-current="page" href="/logout">Log out</a>
+                    </li>
+                    </ul>
+                </div>
+                </div>
+            </nav>
+
+            <div class="card" style="width: 100%; ">
+                <div class="card-body">
+                    {% if isAdmin %}
+                    <form action="/editWorkout" method="POST">
+                        <input style="height: 3rem; font-size: 16pt " name="newVal" value="{{workout['title']}}" />
+                        <input type="hidden" name="field" value="title" />
+                        <input type="hidden" name="workoutId" value="{{workout['_id']}}" />
+                        <button type="submit" class="btn btn-primary">Update title</button>
+                        <a class="btn btn-danger" href="/deleteWorkout?wid={{workout['_id']}}&aid={{athId}}">Delete</a>
+                    </form>
+                    {% else %}
+                    <h3>{{workout['title']}}</h3>
+                    {% endif %}
+                    <div class="row" style="margin-bottom: 1rem;">
+                        <div class="col-sm-8">
+                            <h5>{{workout['date']}}</h5>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="btn-group btn-block" role="group" aria-label="Basic radio toggle button group">
+                                <input type="radio" class="btn-check" name="btnradio" id="rawRadio" autocomplete="off" onclick="showRaw()" value="raw"checked>
+                                <label class="btn btn-outline-primary" for="rawRadio">Raw</label>
+                              
+                                <input type="radio" class="btn-check" name="btnradio" id="splitRadio" autocomplete="off" onclick="showSplit()" value="split">
+                                <label class="btn btn-outline-primary" for="splitRadio">Splits</label>
+                              
+                                <input type="radio" class="btn-check" name="btnradio" id="wattRadio" autocomplete="off" onclick="showWatt()" value="watt">
+                                <label class="btn btn-outline-primary" for="wattRadio">Watts</label>
+                              </div>
+                        </div>
+                    </div>
+
+<!-- raw score table  -->
+
+                    <div style="overflow-x: scroll;" >
+                        <div id="raw div" >
+                            <table class="table">
+                                <thead>
+                                  <tr>
+                                    <th style="position: sticky;"width="2%" scope="col">#</th>
+                                    <th style="position: sticky;"width="18%" scope="col">Name</th>
+                                    <th width="5%" scope="col"></th>
+                                    <th width="15%" scope="col">Average</th>
+                                    {% for piece in workout['pieces'] %}
+                                    <th width="" scope="col">{{piece}}</th>
+                                    {% endfor %}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                {% for id in scores %}
+                                    {% set athleteId = id[0] %}
+                                    {% set avg = id[1][0] %}
+                                    {% set pieces = id[1][1] %}
+                                    <tr {% if loop.index % 2 == 0 %} 
+                                            style="background-color:#f6f6f6;" 
+                                        {% elif athletes[athleteId]['first'] + ' ' + athletes[athleteId]['last'] == viewer %}
+                                            style="background-color:#ffdca8;"
+                                         {% endif %}>
+                                        <th scope="row">{{loop.index}}</th>
+                                        <td>{{athletes[athleteId]['first']}} {{athletes[athleteId]['last']}} </td>
+                                        <td>{% if athletes[athleteId]['side'] == 'port' %}<em style="color: red;">P</em> {% elif athletes[athleteId]['side'] == 'starboard' %}<em style="color: green;">S</em> {% elif athletes[athleteId]['side'] == 'cox' %} <em style="color: grey;">C</em> {% endif %}</td>
+                                        <td>{{averages[athleteId]}}<span style="font-size: xx-small;">avg</td>
+                                        {% for piece in pieces %}
+                                            {% set s = piece.score(as_string=True)[0] %}
+                                            {% if s == 'DNF' %}
+                                                <td style="color: red;">{{piece.score(as_string=True)[0]}}</td>
+                                                {% else %}
+                                                <td>{{piece.score(as_string=True)[0]}}</td>
+
+                                            {% endif %}
+                                        {% endfor %}
+                                        </div>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+
+<!-- split score table  -->
+                    <div id="split div" style="display: none;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="position: sticky;"width="2%" scope="col">#</th>
+                                    <th style="position: sticky;"width="18%" scope="col">Name</th>
+                                    <th width="5%" scope="col"></th>
+                                    <th width="15%" scope="col">Average</th>
+                                    {% for piece in workout['pieces'] %}
+                                    <th width="" scope="col">{{piece}}</th>
+                                    {% endfor %}
+                                  </tr>
+                            </thead>
+                            <tbody>
+                            {% for id in scores %}
+                                {% set athleteId = id[0] %}
+                                {% set avg = id[1][0] %}
+                                {% set pieces = id[1][1] %}
+                                <tr {% if loop.index % 2 == 0 %} 
+                                        style="background-color:#f6f6f6;" 
+                                    {% elif athletes[athleteId]['first'] + ' ' + athletes[athleteId]['last'] == viewer %}
+                                        style="background-color:#ffdca8;"
+                                    {% endif %}>
+                                    <th scope="row">{{loop.index}}</th>
+                                    <td>{{athletes[athleteId]['first']}} {{athletes[athleteId]['last']}} </td>
+                                    <td>{% if athletes[athleteId]['side'] == 'port' %}<em style="color: red;">P</em> {% elif athletes[athleteId]['side'] == 'starboard' %}<em style="color: green;">S</em> {% elif athletes[athleteId]['side'] == 'cox' %} <em style="color: grey;">C</em> {% endif %}</td>
+                                    <td>{{averages[athleteId]}}<span style="font-size: xx-small;">avg</td>
+                                        {% for piece in pieces %}
+                                            {% set s = piece.score(as_string=True)[1] %}
+                                            {% if s == 'DNF' %}
+                                                <td style="color: red;">{{piece.score(as_string=True)[1]}}</td>
+                                                {% else %}
+                                                <td>{{piece.score(as_string=True)[1]}}<span style="font-size: xx-small;">avg</span></td>
+
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </tr>
+                            {% endfor %}
+    
+                            </tbody>
+                        </table>
+                    </div>
+
+<!-- watt score table -->
+                    <div id="watt div" style="display: none;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="position: sticky;"width="2%" scope="col">#</th>
+                                    <th style="position: sticky;"width="18%" scope="col">Name</th>
+                                    <th width="5%" scope="col"></th>
+                                    <th width="15%" scope="col">Average</th>
+                                    {% for piece in workout['pieces'] %}
+                                    <th width="" scope="col">{{piece}}</th>
+                                    {% endfor %}
+                                  </tr>
+                            </thead>
+                            <tbody>
+                            {% for id in scores %}
+                                {% set athleteId = id[0] %}
+                                {% set avg = id[1][0] %}
+                                {% set pieces = id[1][1] %}
+                                <tr {% if loop.index % 2 == 0 %} 
+                                        style="background-color:#f6f6f6;" 
+                                    {% elif athletes[athleteId]['first'] + ' ' + athletes[athleteId]['last'] == viewer %}
+                                        style="background-color:#ffdca8;"
+                                    {% endif %}>
+                                    <th scope="row">{{loop.index}}</th>
+                                    <td>{{athletes[athleteId]['first']}} {{athletes[athleteId]['last']}} </td>
+                                    <td>{% if athletes[athleteId]['side'] == 'port' %}<em style="color: red;">P</em> {% elif athletes[athleteId]['side'] == 'starboard' %}<em style="color: green;">S</em> {% elif athletes[athleteId]['side'] == 'cox' %} <em style="color: grey;">C</em> {% endif %}</td>
+                                    <td>{{averages[athleteId]}}<span style="font-size: xx-small;">avg</td>
+                                        {% for piece in pieces %}
+                                            <td>{{piece.watts()}}<span style="font-size: xx-small;">watt</span></td>
+                                        {% endfor %}
+                                    </div>
+                                </tr>
+                            {% endfor %}
+    
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+                
+
+                
+                    
+            </div>
+        </div>
+
+        <script>
+             if (Math.floor(Math.random()*6) == 1){
+                 var now = new Date()
+                 if (now.getHours() > 17){
+                     if (now.getHours() < 20){
+                         alert("Warning: The server has detected you looking at erg scores during dinner. Please look up from your phone and engage with those around you.");
+                     }
+                 }
+             }
+         </script>
+
+
+
+        <script>
+            function showRaw(){
+                document.getElementById('raw div').style.display ='block';
+                document.getElementById('split div').style.display ='none';
+                document.getElementById('watt div').style.display ='none';
+            }
+            function showSplit(){
+                document.getElementById('raw div').style.display ='none';
+                document.getElementById('split div').style.display ='block';
+                document.getElementById('watt div').style.display ='none';
+            }
+            function showWatt(){
+                document.getElementById('raw div').style.display ='none';
+                document.getElementById('split div').style.display ='none';
+                document.getElementById('watt div').style.display ='block';
+            }
+        </script>
+
+
+
+
+        <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='main.js') }}"></script>   
+        <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>     
+    </body>
+</html>

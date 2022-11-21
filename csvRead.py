@@ -1,5 +1,8 @@
 import csv
 import sys
+import datetime
+from helpers import autoTitle
+from pprint import pprint
 
 def csvReader(filename:str):
     """Function for reading CSV files of the standard MyBoathouse format
@@ -9,42 +12,71 @@ def csvReader(filename:str):
 
     # read the csv
     csvFile = open(filename)
-    reader = csv.DictReader(csvFile, delimiter=',', quotechar='|')
+    reader = csv.reader(csvFile, delimiter=',', quotechar='|')
     lines = list(reader)
     csvFile.close()
 
     # first row of csv
-    header = lines[0]
-    pieces = [] # the keys from the first row, eg. 'Piece 1', 'Piece 2' etc. Allows any number of pieces
-    distances = []  # the distance or time of the piece
-    for key in header:
-        if 'Piece ' in key:
-            pieces.append(key)
-            distances.append(header[key])
+    date = lines[1][1].split('-')
+    test = (lines[2][1] != str(0))
+    pieces = lines[3][2:]
+    notes = list(note for note in lines[4][2:] if note)
 
-    # from the rest of the lines, make a dict of format {athlete : [p1score, p2score, ...]}
-    scoresByAthlete = {}
-    for i in range(1, len(lines)):
-        row = lines[i]
-        athlete = row['MyBoathouse']
+    scoresDict = {}
+    for row in lines[5:]:
+        athleteId = row[0]
         scores = []
-        for key in pieces:
-            scores.append(row[key])
-
-        scoresByAthlete[athlete] = scores
+        scores = list(score for score in row[2:] if score) # terrible code. means add to list if not empy 
+        scoresDict[athleteId] = scores
 
 
-    out = {}
-    out['distances'] = distances
-    out['scores_by_athlete'] = scoresByAthlete
+    workoutDict = {
+        'title' : autoTitle(pieces),
+        'date' : datetime.datetime(int(date[0]), int(date[1]), int(date[2])),
+        'pieces' : list(p for p in pieces if p), # terrible code. means add to list if not empy
+        'scores' : scoresDict,
+        'notes' : notes,
+        'test' : test
+    }
 
-    print(out)
+    return(workoutDict)
 
 
+# ------------------------------------------------------------------- #
+    
+def csvBlank(athleteList):
+    """ function for creating a blank CSV file of the format for the function above.
+        Takes a list of athletes with '_id' and 'name' fields in an iterable
+    """
+    filename = 'blank.csv'
+    blank = open(filename, 'w', newline='')
+    writer = csv.writer(blank)
+    today = str(datetime.date.today())
+    header = [\
+        ['MyBoathouse', '', '', '', '', '', '', ''], \
+        ['Date:', today, '', '', '', '', '', ''], \
+        ['Test:', '0', '', '', '', '', '', ''], \
+        ['Piece:', '', '(XXXXm / mm:ss)', '(XXXXm / mm:ss)', '(XXXXm / mm:ss)', '', '', ''], \
+        ['Notes:', '', '', '', '', '', '', '']\
+        ]
+    writer.writerows(header)
+
+    for a in athleteList:
+        row = [a['_id'], a['name'], '(mm:ss / YYYYm)', '', '', '', '', '']
+        writer.writerow(row)
+
+    blank.close()
 
 
-
-
+# ------------------------------------------------------------------- #
+# test code
 
 if __name__ == "__main__":
-    csvReader()
+    pprint(csvReader('test1.csv'))
+
+    athleteList = [{'_id' : 1, 'name' : 'Cal'}, \
+        {'_id' : 2, 'name' : 'Will'}, \
+            {'_id' : 3, 'name' : 'Ethan'}, \
+                {'_id' : 4, 'name' : 'Peter'}]
+
+    csvBlank(athleteList)
