@@ -1,22 +1,10 @@
-# runserver.py
-
-from sys import argv, exit, stderr
-#from os import system
+from os import environ
 from irgo import app
 
-def main(argv):
-
-    if len(argv) != 2:
-        print('Usage: ' + argv[0] + ' port', file=stderr)
-        exit(1)
-    
-    try:
-        port = int(argv[1])
-    except Exception:
-        print('Port must be an integer.', file=stderr)
-        exit(1)
-
-    app.run()
-
 if __name__ == '__main__':
-    main(argv)
+    HOST = environ.get('SERVER_HOST', 'localhost')
+    try:
+        PORT = int(environ.get('SERVER_PORT', '5555'))
+    except ValueError:
+        PORT = 5555
+    app.run(HOST, PORT)
