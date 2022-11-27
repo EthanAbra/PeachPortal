@@ -1,10 +1,6 @@
 import xlsxwriter
 import openpyxl
-import pandas as pd
 import database as db
-from pprint import pprint
-from io import StringIO, BytesIO
-from structures import Workout, Piece
 import datetime
 from bson.binary import Binary
 import pickle
@@ -13,7 +9,6 @@ from peach import PeachData
 
 
 def xlsxRead(filename, teamId):
-
     data = PeachData(filename)
 
     try:

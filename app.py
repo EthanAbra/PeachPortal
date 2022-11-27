@@ -190,9 +190,16 @@ def upload():
                 for athlete in workout['athlete_list']:
                     athlete_split = athlete.split()
                     athlete_query = db.queryAthleteByName(athlete_split[0], athlete_split[1])
-                    print(f'attributed to {athlete}', end='\r')
-                    ctr += 1
-                    edited = db.addWorkoutToAthlete(athleteId, addedId)
+                    if athlete_query:
+                        athleteId = athlete_query['_id']
+                        print(f'attributed to {athlete}', end='\r')
+                        ctr += 1
+                        edited = db.addWorkoutToAthlete(athleteId, addedId)
+                    else:
+                        athleteId = athlete_query['_id']
+                        print(f'attributed to {athlete}', end='\r')
+                        ctr += 1
+                        edited = db.addWorkoutToAthlete(athleteId, addedId)
                 print(f'Added to {ctr} profiles')
             return redirect('workout?w={}'.format(addedId))
         
