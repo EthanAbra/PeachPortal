@@ -28,7 +28,7 @@ class PeachData():
         misc_start = np.flatnonzero((df[0]=='SessionComments') & (df[1]=='SessionName'))[0]
         misc_end = np.flatnonzero((df[0]=='=====') & (df[1]=='Boat Info'))[0]
 
-        self.misc_info = df.iloc[misc_start+1:misc_end, 0]
+        self.misc_info = df.iloc[misc_start+1:misc_end, 0].dropna().to_numpy(copy=True)
 
 
         aper_start = np.flatnonzero((df[1] == "Aperiodic") & (df[2] == "0x800A"))[0]

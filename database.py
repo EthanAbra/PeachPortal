@@ -39,7 +39,7 @@ def getDatabase():
 def getCollection(collection):
     try:
         dbname = getDatabase()
-        print(dbname)
+        # print(dbname)
         return dbname[collection]
     except Exception as e:
         print(str(e))
@@ -77,11 +77,12 @@ def queryAthlete(athleteId):
         print(str(e))
         return None
 
-def queryAthleteByName(first, last):
-    print(f'queryAthleteByName called with {first} {last}')
+def queryAthleteByName(first, last, team):
+    print(f'queryAthleteByName called with {first} {last} {team}')
+    print()
     try:
         collection_name = getCollection(ATHLETE_COLLECTION)
-        return collection_name.find_one({'first' : first, 'last' : last})
+        return collection_name.find_one({'first' : first, 'last' : last, 'teamId': team})
     except Exception as e:
         print(str(e))
         return None
@@ -97,10 +98,10 @@ def getAllAthletes(teamId, sort_by='name', active_only=False):
         print(str(e))
         return None
 
-def addWorkoutToAthlete(athleteId, newWorkout, workoutId):
+def addWorkoutToAthlete(athleteId, workoutId):
     try:
         collection_name = getCollection(ATHLETE_COLLECTION)
-        result = collection_name.update({'_id' : int(athleteId)}, {'$set' : {f'workouts.{workoutId}' : newWorkout}})
+        result = collection_name.update({'_id' : int(athleteId)}, {'$push' : {"workouts" : workoutId}})
         return result
     except Exception as e:
         print(str(e))
@@ -118,7 +119,8 @@ def removeWorkoutFromAthlete(athleteId, workoutId):
 # general workout collection methods 
 
 def addWorkout(workoutDict, teamId):
-    print(f'addworkout called with {workoutDict}, {teamId}')
+    title = workoutDict['title']
+    print(f'addworkout called with {title}, {teamId}')
     try:
         collection_name = getCollection(WORKOUT_COLLECTION)
         workoutDict['teamId'] = teamId
@@ -267,6 +269,28 @@ def getCredentials(email):
         return None
 
 
+def getCredentialsbyId(id):
+    print(f'getCredentials called with {id}')
+    try:
+        collection_name = getCollection(CREDENTIALS_COLLECTION)
+        result = collection_name.find_one({'_id' : id})
+        return result
+    except Exception as e:
+        print(str(e))
+        return None
+
+
+def editCredentials(athleteId, field, value):
+    print(f'editCredentials called with {athleteId}')
+    try:
+        collection_name = getCollection(CREDENTIALS_COLLECTION)
+        result = collection_name.update_one({'_id' : athleteId}, {'$set' : {field : value}})
+        return result.modified_count
+    except Exception as e:
+        print(str(e))
+        return None
+
+
 
 # ------------------------------------------------------------------- #
 # Test code
@@ -387,22 +411,4 @@ if __name__ == "__main__":
     # hashed = bcrypt.hashpw(pwPlain, salt)
     # addCredentials(420, 'a@x.com', hashed, salt)
 
-
-    # creds = getCredentials('hjv@princeton.edu')
-    print(creds)
-    print(bcrypt.checkpw(b'sugmaLigma', creds['pwHash']))
-
-    # for a in getAllAthletes(1, sort_by='class'):
-    #     pprint(a)
-    # for w in getAllWorkouts(1):
-    #     pprint(w)
-
-    # # for z in getScoreByAthlete(69,2):
-    # #     pprint(z)
-
-    print(editAthlete(69, 'first', 'wiener'))
-
-    print(editWorkout(75, 'title', "10k, 10x(30' on, 1:30 off)"))
-    print(getAllAthletes(1887))
-    for athlete in getAllAthletes(1887):
-        print(removeWorkoutFromAthlete(athlete['id'], 92))
+    pass

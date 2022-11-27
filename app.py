@@ -187,20 +187,50 @@ def upload():
             print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
 
             if len(workout['athlete_list']) :
-                for athlete in workout['athlete_list']:
-                    athlete_split = athlete.split()
-                    athlete_query = db.queryAthleteByName(athlete_split[0], athlete_split[1])
+                for ath_idx, athlete in enumerate(workout['athlete_list']):
+                    first, last = athlete.split() # TODO: this is dangerous!!!!!!
+                    print()
+                    athlete_query = db.queryAthleteByName(first, last, teamId) # TODO: check if working, then introduce fuzzy matching
                     if athlete_query:
                         athleteId = athlete_query['_id']
                         print(f'attributed to {athlete}', end='\r')
-                        ctr += 1
                         edited = db.addWorkoutToAthlete(athleteId, addedId)
-                    else:
-                        athleteId = athlete_query['_id']
+                    else: # we need to create a new athlete for this individual
+                        error = ''
+                        newId = random.randint(10, 100000)
+                        # add the login credentials to credentials DB
+                        add = db.addCredentials(newId, athlete, "pwhash", "salt")
+                        if not add:
+                            error += 'failed to add user cred'
+        
+                        # create athlete document from entered info
+                        permissions = ['']
+                        # if 'admin' in request.form.keys():
+                        #     permissions.append('admin')
+                        side = 'starboard'
+                        if ath_idx % 2:
+                            side = 'port'
+
+                        athlete = {
+                            "_id" : newId,
+                            "first" : first,
+                            "last" : last,
+                            "permissions" : permissions,
+                            "workouts" : [addedId],
+                            "side" : side,
+                            "active" : True,
+                            "teamId" : teamId
+                        }
+                        # add athlete document to athlete db
+                        add = db.addAthlete(athlete)
+                        if not add:
+                            error += "failed to add athlete"
+                        
+                        if len(error):
+                            return redirect(f'/home?e=1&em={error}')
+
                         print(f'attributed to {athlete}', end='\r')
-                        ctr += 1
-                        edited = db.addWorkoutToAthlete(athleteId, addedId)
-                print(f'Added to {ctr} profiles')
+                        # edited = db.addWorkoutToAthlete(add, addedId)
             return redirect('workout?w={}'.format(addedId))
         
     except Exception as e:
@@ -299,53 +329,78 @@ def signup():
         pwhash = bcrypt.hashpw(password, salt)
 
         # check if this email is already in database
-        checkIfNew = db.getCredentials(email)
+        checkIfNewEmail = db.getCredentials(email)
         checkIfTeam = db.queryTeam(team)
-        if checkIfNew:
+        if checkIfNewEmail:
             error = 'Account already exists with this email'
         elif not checkIfTeam:
             error = f'No team exists with id: {team}'
         else:
-            # TODO: ensure noncollision in assigning IDs
-            newId = random.randint(10, 100000)
-            # add the login credentials to credentials DB
-            add = db.addCredentials(newId, email, pwhash, salt)
-            if not add:
-                error = 'failed to add user'
-
-            # create athlete document from entered info
-            permissions = ['']
-            if side == 'cox':
-                permissions.append('cox')
-
-            # if 'admin' in request.form.keys():
-            #     permissions.append('admin')
-
-            athlete = {
-                "_id" : newId,
-                "first" : first,
-                "last" : last,
-                "permissions" : permissions,
-                "prs" : {
-                    "2000m" : '-1',
-                    "6000m" : '-1'
-                },
-                "workouts" : [],
-                "side" : side,
-                "class" : classYr,
-                "active" : True,
-                "teamId" : team
-            }
-            # add athlete document to athlete db
-            add = db.addAthlete(athlete)
-            if not add:
-                error = "failed to add user"
+            already_here = db.queryAthleteByName(first, last, team)
+            if already_here: 
+                already_cred = db.getCredentialsbyId(already_here["_id"])
+                if already_cred["pwHash"] == "pwhash":
+                    # temped cred, update the cred
+                    count = 0
+                    count += db.editCredentials(already_here["_id"], "email", email)
+                    count += db.editCredentials(already_here["_id"], "pwHash", pwhash)
+                    count += db.editCredentials(already_here["_id"], "salt", salt)
+                    if count != 3:
+                        error = 'failed to update user credentials'
 
 
-            print(f'New user registered: {first} {last}, email: {email}, {side} side, {team} team')
+                    print(f'New user updated: {first} {last}, email: {email}, {side} side, {team} team')
+                    html = redirect('/home')
+                    return make_response(html)
+                else:
+                    error = 'Account already exists for this user. Try another email'
 
-            html = redirect('/home')
-            return make_response(html)
+            else: 
+
+                newId = random.randint(10, 100000)
+                already_id = db.getCredentialsbyId(newId)
+                while already_id:
+                    newId = random.randint(10, 100000)
+                    already_id = db.getCredentialsbyId(newId)
+
+                # add the login credentials to credentials DB
+                add = db.addCredentials(newId, email, pwhash, salt)
+                if not add:
+                    error = 'failed to add user'
+
+                # create athlete document from entered info
+                permissions = ['']
+                if side == 'cox':
+                    permissions.append('cox')
+
+                # if 'admin' in request.form.keys():
+                #     permissions.append('admin')
+
+                athlete = {
+                    "_id" : newId,
+                    "first" : first,
+                    "last" : last,
+                    "permissions" : permissions,
+                    "prs" : {
+                        "2000m" : '-1',
+                        "6000m" : '-1'
+                    },
+                    "workouts" : [],
+                    "side" : side,
+                    "class" : classYr,
+                    "active" : True,
+                    "teamId" : team
+                }
+                # add athlete document to athlete db
+                add = db.addAthlete(athlete)
+                if not add:
+                    error = "failed to add user"
+
+
+                print(f'New user registered: {first} {last}, email: {email}, {side} side, {team} team')
+
+                html = redirect('/home')
+                return make_response(html)
     teamId = request.args.get('t')
     if teamId:
         html = render_template('signup.html', newTeam=True, error=error, teamId=teamId)

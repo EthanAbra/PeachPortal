@@ -23,11 +23,11 @@ def xlsxRead(filename, teamId):
 
     workoutDict = {
         '_id' : nextId,
-        'title' : filename,
+        'title' : str(filename.filename),
         'date' : data.get_date(),
         'peach_data' : Binary(peach_bytes),
-        'notes' : data.get_notes(),
-        'athlete_list': data.get_athletes(),
+        'notes' : list(data.get_notes()),
+        'athlete_list': list(data.get_athletes()),
     }
 
     print('read xlsx file')
