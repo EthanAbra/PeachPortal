@@ -186,16 +186,14 @@ def upload():
         else:
             print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
 
-            # attribute the workout to the participating athletes
-            allScores = pickle.loads(workout['scores'])
-            ctr = 0
-            for workout in allScores:
-                athleteId = workout.athleteId
-                pickledWorkout = Binary(pickle.dumps(workout))
-                print(f'attributed to {athleteId}', end='\r')
-                ctr += 1
-                edited = db.addWorkoutToAthlete(athleteId, pickledWorkout, addedId)
-            print(f'Added to {ctr} profiles')
+            if len(workout['athlete_list']) :
+                for athlete in workout['athlete_list']:
+                    athlete_split = athlete.split()
+                    athlete_query = db.queryAthleteByName(athlete_split[0], athlete_split[1])
+                    print(f'attributed to {athlete}', end='\r')
+                    ctr += 1
+                    edited = db.addWorkoutToAthlete(athleteId, addedId)
+                print(f'Added to {ctr} profiles')
             return redirect('workout?w={}'.format(addedId))
         
     except Exception as e:
