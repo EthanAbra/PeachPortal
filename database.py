@@ -7,6 +7,7 @@ import bcrypt
 import pickle
 import random
 import certifi
+import collections
 
 
 
@@ -25,7 +26,8 @@ else:
     
 DBNAME = 'peach'
 ATHLETE_COLLECTION = 'athletes'
-WORKOUT_COLLECTION = 'workouts'
+WORKOUTDATA_COLLECTION = 'workoutsdata'
+WORKOUTMETA_COLLECTION = 'workoutsmeta'
 CREDENTIALS_COLLECTION = 'credentials'
 TEAMS_COLLECTION = 'teams'
 
@@ -101,7 +103,7 @@ def getAllAthletes(teamId, sort_by='name', active_only=False):
 def addWorkoutToAthlete(athleteId, workoutId):
     try:
         collection_name = getCollection(ATHLETE_COLLECTION)
-        result = collection_name.update({'_id' : int(athleteId)}, {'$push' : {"workouts" : workoutId}})
+        result = collection_name.update_one({'_id' : int(athleteId)}, {'$push' : {"workouts" : workoutId}})
         return result
     except Exception as e:
         print(str(e))
@@ -110,7 +112,7 @@ def addWorkoutToAthlete(athleteId, workoutId):
 def removeWorkoutFromAthlete(athleteId, workoutId):
     try:
         collection_name = getCollection(ATHLETE_COLLECTION)
-        result = collection_name.update({'_id' : athleteId}, {'$unset' : {f'workouts.{workoutId}' : ''}})
+        result = collection_name.update_one({'_id' : athleteId}, {'$unset' : {f'workouts.{workoutId}' : ''}})
         return result
     except Exception as e:
         print(str(e))
@@ -121,10 +123,16 @@ def removeWorkoutFromAthlete(athleteId, workoutId):
 def addWorkout(workoutDict, teamId):
     title = workoutDict['title']
     print(f'addworkout called with {title}, {teamId}')
+    dataDict = collections.defaultdict()
     try:
-        collection_name = getCollection(WORKOUT_COLLECTION)
+        collection_name = getCollection(WORKOUTMETA_COLLECTION)
         workoutDict['teamId'] = teamId
+        dataDict['peach_data'] = workoutDict.pop('peach_data')
+        dataDict['teamId'] = teamId
         result = collection_name.insert_one(workoutDict)
+        dataDict['_id'] = result.inserted_id
+        collection_name = getCollection(WORKOUTDATA_COLLECTION)
+        result = collection_name.insert_one(dataDict)
         return result.inserted_id
     except Exception as e:
         print(str(e))
@@ -133,18 +141,29 @@ def addWorkout(workoutDict, teamId):
 def editWorkout(workoutId, field, newVal):
     print(f'editWorkout called with {workoutId}, {field}, {newVal}')
     try:
-        collection_name = getCollection(WORKOUT_COLLECTION)
+        collection_name = getCollection(WORKOUTMETA_COLLECTION)
         result = collection_name.update_one({'_id' : workoutId}, {'$set' : {field : newVal}})
         return result.modified_count
     except Exception as e:
         print(str(e))
         return None
 
-def queryWorkout(workoutId):
+def queryWorkoutMeta(workoutId):
     print(f'queryWorkout called with {workoutId}')
     try:
         workoutId = int(workoutId)
-        collection_name = getCollection(WORKOUT_COLLECTION)
+        collection_name = getCollection(WORKOUTMETA_COLLECTION)
+        res = collection_name.find_one({'_id' : workoutId})
+        return res
+    except Exception as e:
+        print(str(e))
+        return None
+
+def queryWorkoutData(workoutId):
+    print(f'queryWorkout called with {workoutId}')
+    try:
+        workoutId = int(workoutId)
+        collection_name = getCollection(WORKOUTDATA_COLLECTION)
         res = collection_name.find_one({'_id' : workoutId})
         temp = pickle.loads(res['peach_data'])
         res['peach_data'] = temp
@@ -156,7 +175,9 @@ def queryWorkout(workoutId):
 def deleteWorkout(workoutId):
     print(f'deleteWorkout called with {workoutId}')
     try:
-        collection_name = getCollection(WORKOUT_COLLECTION)
+        collection_name = getCollection(WORKOUTMETA_COLLECTION)
+        result = collection_name.delete_one({'_id' : workoutId})
+        collection_name = getCollection(WORKOUTDATA_COLLECTION)
         result = collection_name.delete_one({'_id' : workoutId})
         return result.deleted_count
     except Exception as e:
@@ -166,7 +187,7 @@ def deleteWorkout(workoutId):
 def getAllWorkouts(teamId, sort_by='date'):
     print(f'getAllWorkouts called with {teamId}')
     try:
-        collection_name = getCollection(WORKOUT_COLLECTION)
+        collection_name = getCollection(WORKOUTMETA_COLLECTION)
         return collection_name.find({'teamId' : teamId}, sort=[(sort_by, pymongo.DESCENDING)])
     except Exception as e:
         print(str(e))
@@ -206,7 +227,7 @@ def addTeam(name):
 def attributeWorkout(workoutId):
     try:
         athletes_collection = getCollection(ATHLETE_COLLECTION)
-        workout_collection = getCollection(WORKOUT_COLLECTION)
+        workout_collection = getCollection(WORKOUTMETA_COLLECTION)
 
         workout = workout_collection.find_one({'_id' : workoutId})
         # athletes who completeted the workout
@@ -224,7 +245,7 @@ def attributeWorkout(workoutId):
 # return a list [(distance, time)] 
 def getScoreByAthlete(athleteId, workoutId):
     try:
-        workout_collection = getCollection(WORKOUT_COLLECTION)
+        workout_collection = getCollection(WORKOUTMETA_COLLECTION)
         result = workout_collection.find_one({'_id' : workoutId })
         if not result:
             print('No workout with id ' + str(workoutId))

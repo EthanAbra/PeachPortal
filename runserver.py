@@ -2,7 +2,7 @@
 
 from sys import argv, exit, stderr
 #from os import system
-from app import app
+from app import socketio, app
 
 def main(argv):
 
@@ -16,7 +16,7 @@ def main(argv):
         print('Port must be an integer.', file=stderr)
         exit(1)
 
-    app.run(host='0.0.0.0', port=port, debug=True)
+    socketio.run(app, host='0.0.0.0', port=port, debug=True)
 
 if __name__ == '__main__':
     main(argv)

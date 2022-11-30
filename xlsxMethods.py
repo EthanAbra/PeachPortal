@@ -11,6 +11,10 @@ from peach import PeachData
 def xlsxRead(filename, teamId):
     data = PeachData(filename)
 
+    if isinstance(data, Exception):
+        return False, "Powerline File is formatted incorrectly"
+
+
     try:
         nextId = int(db.getAllWorkouts(teamId, sort_by='_id')[0]['_id']) + 1 # increment _id
     except IndexError:

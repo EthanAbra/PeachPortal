@@ -8,6 +8,32 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
         <title>PeachPortal- Home</title>
         <script src="https://code.jquery.com/jquery-3.6.0.slim.js"   integrity="sha256-HwWONEZrpuoh951cQD1ov2HUK5zA5DwJ1DNUXaM6FsY="   crossorigin="anonymous"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.min.js"></script>
+        <script type="text/javascript">
+            $(document).ready(function () {
+                namespace =  ''
+                var socket = io()
+                socket.on( 'connect', function() {
+                    socket.emit( 'my event', {
+                        data: 'User Connected'
+                    } )
+                } )
+                $("#run_button_id").click(function () {
+                    message = "ping"
+                    socket.emit("client_to_server", { msg: message })
+                })
+                socket.on( "server_to_client", function( msg ) {
+                    console.log( msg )
+                    if( msg.type == 'error' ) {
+                        $( 'div.message_holder' ).append( '<div class="alert alert-danger" role="alert">' + msg.message + '</div>')
+                    }
+                    else {
+                        $( 'div.message_holder' ).append( '<div class="alert alert-success" role="alert">' + msg.message + '</div>')
+                    }
+                })
+            })
+        </script>
     </head>
     <body>
         <div class="container-fluid">
@@ -60,6 +86,7 @@
 
                     </div>
                 </div>
+                <button id="run_button_id">Ping</button>
                 {% if 'cox' in perms or 'admin' in perms %}
                 <div class="row">
                     <div class="col card text-center" style="margin: 1rem;">
@@ -75,6 +102,8 @@
                                 </form>
                             </div>
                         </div>
+                        <div class="alert alert-danger" role="alert"></div>
+                        <div class="alert alert-success" role="alert"></div>
                     </div>
                     {% endif %}
                 </div>
@@ -97,9 +126,7 @@
                 </div>
                 {% endif %}
                 </div>
-
-
-                
+            
             </div>
 
 
@@ -111,10 +138,11 @@
         {% endif %}
 
         <script>
-            $("#file").change(function () {
-            $("#upload").submit();
-            });
+
         </script>
+
+        <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+        
         
         <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
         <script type="text/javascript" src="{{ url_for('static', filename='main.js') }}"></script>     

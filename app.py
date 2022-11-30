@@ -1,3 +1,6 @@
+from gevent import monkey
+monkey.patch_all()
+
 from flask import Flask, request, make_response, redirect, url_for, Response
 from flask import render_template, Markup, flash, session, jsonify, abort
 from werkzeug.security import generate_password_hash, check_password_hash, gen_salt
@@ -19,7 +22,7 @@ from bson.binary import Binary
 import io
 import base64
 import numpy as np
-
+import magic
 from bokeh.models import Label, LabelSet
 import seaborn as sns
 from bokeh.layouts import layout, grid
@@ -28,6 +31,10 @@ from bokeh.embed import components
 from bokeh.plotting import figure
 from bokeh.palettes import Oranges9
 from bokeh.resources import INLINE
+import json
+from flask_socketio import SocketIO, emit
+from threading import Lock
+
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -42,17 +49,64 @@ if 'secret_key' not in os.environ:
 else:
     secret_key = os.environ['secret_key']
 
+
+
+thread = None
+thread_lock = Lock()
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
+
+global message_queue
+message_queue = []
 
 app.secret_key = secret_key
 app.config['SECRET_KEY'] = app.secret_key
+
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = '/login'
 login_manager.init_app(app)
 
+socketio = SocketIO(app, async_mode = "gevent", cors_allowed_origins='*', manage_session=False)
+
+
 class User(flask_login.UserMixin):
     pass
+
+def background_thread():
+    sleeptime = 2
+    while True:
+        try:
+            message = message_queue.pop(0)
+            socketio.emit('server_to_client', {'msg': message['msg'], "type": message['type']})
+            socketio.sleep(sleeptime)
+        except IndexError:
+            socketio.sleep(sleeptime)
+        
+
+
+@socketio.on('connect')
+def connect():
+    global thread
+    print('Client connected')
+
+    global thread
+    with thread_lock:
+        if thread is None:
+            thread = socketio.start_background_task(background_thread)
+
+@socketio.on('client_to_server')
+def test_connect(msg):
+    print('cts msg')
+
+@socketio.on('disconnect')
+def disconnect():
+    print('Client disconnected',  request.sid)
+
+@socketio.on('my event')
+def my_event(msg):
+    print(msg)
+
+
 
 #-----------------------------------------------------------------------
 """ flask_login methods """
@@ -111,7 +165,7 @@ def home():
         email = session['user']
     user = user_loader(email)
     athlete = db.queryAthlete(user.id)
-    html = render_template('home.html', perms=athlete['permissions'], first=athlete['first'])
+    html = render_template('home.html', perms=athlete['permissions'], first=athlete['first'], async_mode=socketio.async_mode)
     return make_response(html)
 
 @app.route('/howToUpload', methods=['GET'])
@@ -120,55 +174,9 @@ def howToUpload():
     return make_response(html)
 
 #-----------------------------------------------------------------------
-""" File upload and download methods """
+""" File upload method"""
 #-----------------------------------------------------------------------
 
-""" download a blank .xlsx file for recording a workout """
-@flask_login.login_required
-@app.route('/download')
-def download():
-
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
-        
-    user = user_loader(email)
-    athleteId = user.id
-    athlete = db.queryAthlete(athleteId)
-    teamId = athlete['teamId']
-    try:
-        blankOutput = xlsxMethods.xlsxBlank(teamId)
-        response = Response()
-        response.data = blankOutput.read()
-        response.status_code = 200
-        file_name = 'workout_{}.xlsx'.format(datetime.now().strftime('%d/%m/%Y'))
-        mimetype_tuple = mimetypes.guess_type(file_name)
-        headers = {
-            'Pragma': "public",  # required,
-            'Expires': '0',
-            'Cache-Control': 'must-revalidate, post-check=0, pre-check=0',
-            'Cache-Control': 'private',  # required for certain browsers,
-            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition': 'attachment; filename=\"%s\";' % file_name,
-            'Content-Transfer-Encoding': 'binary',
-            'Content-Length': len(response.data)
-        }
-
-        for k in headers:
-            response.headers[k] = headers[k]
-
-        if not mimetype_tuple[1] is None:
-            response.update({
-                'Content-Encoding': mimetype_tuple[1]
-            })
-        response.set_cookie('fileDownload', 'true', path='/')
-
-        print(f'/download accessed by {athlete["first"]} {athlete["last"]}')
-
-        return response
-    except Exception as e:
-        print(e, ' in download')
 
 """ upload a .xlsx file for processing and storing in database """
 @flask_login.login_required
@@ -188,28 +196,47 @@ def upload():
 
     file = request.files['sheet']
 
+    message_queue += [{"msg" : "receved file", "type": "success"}]
+
+    filetype = magic.from_buffer(file.read(1024))
+    print(filetype)
+
+    if not filetype.startswith('Microsoft Excel') and not filetype.startswith('Zip archive data'):
+        message_queue += [ { "msg": "file type is not xlsx", "type": "error" }]
+        # message_queue += ["receved file", "success"]
+
+        # return redirect('/home')
+
     try:
+        # TODO: More efficient processing????
         success, workout = xlsxMethods.xlsxRead(file, teamId)
         if not success:
-            message = urllib.parse.quote(workout)
-            return redirect(f'/home?e=1&em={message}')
+            message_queue += [ { "msg": workout, "type": "error" }]
+            return redirect('/home')
+        message_queue += [ { "msg": "peach processed", "type": "success" }]
 
         addedId = db.addWorkout(workout, teamId)
         if not addedId:
-            flash("failed to add workout")
+            message_queue += [ { "msg": "failed to add workout", "type": "error" }]
+            return redirect('/home')
         else:
             print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
 
             if len(workout['athlete_list']) :
                 for ath_idx, athlete in enumerate(workout['athlete_list']):
                     first, last = athlete.split() # TODO: this is dangerous!!!!!!
-                    print()
+                    # print()
                     athlete_query = db.queryAthleteByName(first, last, teamId) # TODO: check if working, then introduce fuzzy matching
                     if athlete_query:
                         athleteId = athlete_query['_id']
                         print(f'attributed to {athlete}', end='\r')
+
+                        message_queue += [ { "msg": f"workout attributed to {athlete}", "type": "success" }]
+
                         edited = db.addWorkoutToAthlete(athleteId, addedId)
                     else: # we need to create a new athlete for this individual
+                        message_queue += [ { "msg": f"creating new account for {athlete}", "type": "success" }]
+
                         error = ''
                         newId = random.randint(10, 100000)
                         # add the login credentials to credentials DB
@@ -245,11 +272,15 @@ def upload():
 
                         print(f'attributed to {athlete}', end='\r')
                         # edited = db.addWorkoutToAthlete(add, addedId)
-            return redirect('workout?w={}'.format(addedId))
-        
+                return redirect('workout?w={}'.format(addedId))
+            else:
+                message_queue += [ { "msg": "no athletes in workout. cant process", "type": "error" }]
+
+                return redirect('/home')
     except Exception as e:
         print(str(e), ' in upload')
-        flash("There was an error uploading the file")
+        message_queue += [ { "msg": "file upload error", "type": "error" }]
+
         return redirect('/home')
 
     
@@ -462,6 +493,7 @@ def workouts():
         delPerm = True
     else:
         delPerm = False
+
     
     html = render_template('workouts.html' ,workouts=workouts, delPerm=delPerm, athId=athlete['_id'])
     return make_response(html)
@@ -489,7 +521,7 @@ def delete():
             print(f"Delete accessed by unauthorized user {athlete['first']} {athlete['last']}")
             return render_template('error.html'), 500
         # verify requesting athlete 'owns' that workout
-        if athlete['teamId'] != db.queryWorkout(workoutId)['teamId']:
+        if athlete['teamId'] != db.queryWorkoutMeta(workoutId)['teamId']:
             print(f"Cross-team delete attempted by user {athlete['first']} {athlete['last']} on team:{athlete['teamId']}")
             return render_template('error.html'), 500
         
@@ -505,7 +537,7 @@ def delete():
             print(f'workout {workoutId} deleted, removed from {ctr} profiles')
             return redirect('/workouts')
 
-    workout = db.queryWorkout(workoutId)
+    workout = db.queryWorkoutMeta(workoutId)
     html = render_template('confirmDelete.html', workout=workout, wid=workoutId, aid=athleteId)
     return make_response(html)
 
@@ -533,7 +565,7 @@ def workout():
     if 'cox' not in athlete['permissions']:
         return redirect(f'/myworkout?w={workoutId}')
 
-    practice = db.queryWorkout(workoutId)
+    practice = db.queryWorkoutData(workoutId)
 
     elite = practice['peach_data']
 
@@ -636,7 +668,7 @@ def myworkout():
     workoutId = request.args.get('w')
     
 
-    practice = db.queryWorkout(workoutId)
+    practice = db.queryWorkoutData(workoutId)
 
     elite = practice['peach_data']
 
@@ -861,3 +893,8 @@ def allAthletes():
     for a in ath:
         html += str(a) + '\n'
     return make_response(html)
+
+
+if __name__ == '__main__':
+    socketio.run(app, port=8000, host='0.0.0.0', debug=True)
+    print('socket io start')
