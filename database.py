@@ -146,8 +146,8 @@ def queryWorkout(workoutId):
         workoutId = int(workoutId)
         collection_name = getCollection(WORKOUT_COLLECTION)
         res = collection_name.find_one({'_id' : workoutId})
-        temp = pickle.loads(res['scores'])
-        res['scores'] = temp
+        temp = pickle.loads(res['peach_data'])
+        res['peach_data'] = temp
         return res
     except Exception as e:
         print(str(e))

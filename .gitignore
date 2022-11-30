@@ -133,3 +133,5 @@ dmypy.json
 .pyre/
 
 test_sheets/
+requirements.in
+try.txt

@@ -9,12 +9,26 @@ import urllib
 import database as db
 import random
 import bcrypt
+import peachhelp
 import xlsxMethods
 from io import StringIO
 from datetime import datetime
 import mimetypes
 import pickle
 from bson.binary import Binary
+import io
+import base64
+import numpy as np
+
+from bokeh.models import Label, LabelSet
+import seaborn as sns
+from bokeh.layouts import layout, grid
+from bokeh.plotting import show
+from bokeh.embed import components
+from bokeh.plotting import figure
+from bokeh.palettes import Oranges9
+from bokeh.resources import INLINE
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -496,7 +510,7 @@ def delete():
     return make_response(html)
 
 
-""" display a single workout """
+""" display a coach/coxswain portal for workout """
 @flask_login.login_required
 @app.route('/workout', methods=['GET'])
 def workout():
@@ -514,67 +528,222 @@ def workout():
         isAdmin = False
 
     workoutId = request.args.get('w')
+    
+
+    if 'cox' not in athlete['permissions']:
+        return redirect(f'/myworkout?w={workoutId}')
+
     practice = db.queryWorkout(workoutId)
 
-    results = practice['scores']
-    notes = ", ".join([str(n) for n in practice['notes']])
-    athletes = {}
-    scoresDict = {}
-    averages = {}
+    elite = practice['peach_data']
 
-    bikeAthletes = {}
-    bikeScores = {}
-    bikeAverages = {}
+    npts = 100
 
+    colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
 
-    # for workout in results:
-    #     athleteId = workout.athleteId
-    #     ath = db.queryAthlete(athleteId)
-
-    #     ad = {
-    #         'first' : ath['first'],
-    #         'last' : ath['last'],
-    #         'side' : ath['side']
-    #     }
-
-    #     if hasattr(workout, 'mod'):
-    #         if workout.mod == 'B': # if bike modifier, add them to bike athletes
-    #             bikeAthletes[athleteId] = ad
-    #             bikeScores[athleteId] = workout.split, workout.scores, workout.watts()
-    #             bikeAverages[athleteId] = workout.split.strftime('%-M:%S.%f')[:-5]
-    #         else:
-    #             athletes[athleteId] = ad
-    #             scoresDict[athleteId] = workout.split, workout.scores, workout.watts()
-    #             averages[athleteId] = workout.split.strftime('%-M:%S.%f')[:-5]
-    #     else:      
-    #         athletes[athleteId] = ad
-    #         scoresDict[athleteId] = workout.split, workout.scores, workout.watts()
-    #         averages[athleteId] = workout.split.strftime('%-M:%S.%f')[:-5]
+    ax = [None]*9
+    ax[0] = figure(background_fill_color="#fafafa")
+    ax[1] = figure(background_fill_color="#fafafa")
+    ax[2] = figure(background_fill_color="#fafafa")
+    ax[3] = figure(background_fill_color="#fafafa")
+    ax[4] = figure(background_fill_color="#fafafa")
+    ax[5] = figure(background_fill_color="#fafafa")
+    ax[6] = figure(background_fill_color="#fafafa")
+    ax[7] = figure(background_fill_color="#fafafa")
+    ax[8] = figure(background_fill_color="#fafafa", sizing_mode="stretch_width")
 
 
-    # scoresDict_sorted = sorted(scoresDict.items(), key=lambda wo:wo[1][0])
-    # bikeScores_sorted = sorted(scoresDict.items(), key=lambda wo:wo[1][0])
+    stroke_nums = list(range(1, elite.numstrokes+1))
 
-    # html = render_template('workout.html' , workout=practice, scores=scoresDict_sorted, athletes=athletes, averages=averages, bikeScores=bikeScores_sorted, bikeAthletes=bikeAthletes, bikeAverages=bikeAverages, isAdmin=isAdmin, athId=user.id)
+    average_aper_data = elite.get_average_aper_data()
+    for peep in range(8):
+        theta3 = []
+        thetadot3 = []
+        for s in range(1, elite.numstrokes):
+            dat3 = elite.resample_stroke(s, [0, peep+1,peep+1+8], npts)
+            theta3 += [dat3[:,1]]
+            thetadot3 += [dat3[:,2]]
+        label = Label(x=np.min(theta3), y=-23, x_units='data', y_units = 'data', 
+        text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
+        (average_aper_data[1+peep],average_aper_data[17+peep], average_aper_data[33+peep], average_aper_data[121+peep]),
+            border_line_color='black', border_line_alpha=.5,
+            background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
+
+        ax[peep].multi_line(xs = theta3, ys = thetadot3, color=colors[peep],line_alpha = .05, line_join = 'bevel', line_width = 2, legend_label="%d seat" %(peep+1))
+        ax[peep].xaxis.axis_label='Gate Angle °'
+        ax[peep].yaxis.axis_label='Gate Force (N)'
+        ax[peep].add_layout(label)
+        ax[8].line(x = stroke_nums, y = elite.aper_data[:,1+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label="%d seat" %(peep+1))
+
+    boat_pow = elite.get_boat_power()
+    ax[8].line(x = stroke_nums, y = boat_pow, line_join = 'bevel', line_width = 2, legend_label = "Average Boat Power")
+
+    
+
+    label = Label(x=elite.numstrokes//2-10, y=550, x_units='data', y_units = 'data', 
+        text='Average Boat:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
+        (np.mean(average_aper_data[1:9]),np.mean(average_aper_data[17:25]), np.mean(average_aper_data[33:41]), np.mean(average_aper_data[121:129])),
+            border_line_color='black', border_line_alpha=.5,
+            background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
+
+    ax[8].add_layout(label)
+
+
+    bow_four = [ax[0], ax[1], ax[2], ax[3]]
+    stern_four = [ax[4],ax[5],ax[6],ax[7]]
+
+
+    my_grid = grid([
+        bow_four,
+        stern_four,
+        [ax[8]],
+    ])
+
+    my_grid.sizing_mode = "scale_both"
+
+    js_resources = INLINE.render_js()
+    css_resources = INLINE.render_css()
+
+    # render template
+    script, div = components(my_grid)
+    html = render_template(
+        'workout.html',
+        workout = workout,
+        plot_script=script,
+        plot_div=div,
+        js_resources=js_resources,
+        css_resources=css_resources,
+    )
+    return make_response(html)
+
+    # html = render_template('workout.html' , workout=practice, image = imagestring)
     # return make_response(html)
 
-    for workout in results:
-        athleteId = workout.athleteId
-        ath = db.queryAthlete(athleteId)
-        athletes[athleteId] = {
-            'first' : ath['first'],
-            'last' : ath['last'],
-            'side' : ath['side']
-        }
-        scoresDict[athleteId] = workout.split, workout.scores, workout.watts()
-        averages[athleteId] = workout.split.strftime('%-M:%S.%f')[:-5]
 
 
-    scoresDict_sorted = sorted(scoresDict.items(), key=lambda wo:wo[1][0])
-    viewer = athlete['first'] + ' ' + athlete['last']
+""" display a coach/coxswain portal for workout """
+@flask_login.login_required
+@app.route('/myworkout', methods=['GET'])
+def myworkout():
+    # load the user 
+    if 'user' not in session:
+        return redirect('/login')
+    else:
+        email = session['user']
+    user = user_loader(email)
+    athlete = db.queryAthlete(user.id)
 
-    html = render_template('workout.html' , workout=practice, scores=scoresDict_sorted, athletes=athletes, averages=averages, isAdmin=isAdmin, viewer=viewer)
+    workoutId = request.args.get('w')
+    
+
+    practice = db.queryWorkout(workoutId)
+
+    elite = practice['peach_data']
+
+    npts = 100
+
+    colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
+
+    seat_num = practice['athlete_list'].index(athlete['first'] + " " + athlete['last'])
+
+
+    ax = [None]*2
+    ax[0] = figure(background_fill_color="#fafafa")
+    ax[1] = figure(background_fill_color="#fafafa")
+    bx = [None]*2
+    bx[0] = figure(background_fill_color="#fafafa")
+    bx[1] = figure(background_fill_color="#fafafa")
+
+
+    cx = [None]*2
+    cx[0] = figure(background_fill_color="#fafafa")
+    cx[1] = figure(background_fill_color="#fafafa")
+
+
+
+
+    # stroke_nums = list(range(1, elite.numstrokes+1))
+
+    theta3 = []
+    thetadot3 = []
+    time_resamp = []
+    for s in range(1, elite.numstrokes):
+        dat3 = elite.resample_stroke(s, [0, seat_num+1,seat_num+1+8], npts)
+        time_resamp += [dat3[:,0]]
+        theta3 += [dat3[:,1]]
+        thetadot3 += [dat3[:,2]]
+    ax[0].multi_line(xs = theta3, ys = thetadot3, line_alpha = .05, color=colors[0], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
+    ax[0].xaxis.axis_label='Gate Angle °'
+    ax[0].yaxis.axis_label='Gate Force (N)'
+
+    # TODO: With average stroke. not individual stroke
+    # START WITH JUST ONE STROKE BEFORE WE DO AVERAGING
+    chosen_stroke = 100
+
+    mathDict = peachhelp.helperMath(theta3[chosen_stroke], thetadot3[chosen_stroke], time_resamp[chosen_stroke])
+    
+    ideal_stroke = peachhelp.ideal_stroke_module(theta3[chosen_stroke], thetadot3[chosen_stroke])
+
+    svdDict = peachhelp.svd_module(elite, 100, seat_num)
+
+    peachhelp.plot_vector(svdDict['mean'], label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=bx)
+
+    boat_svd = peachhelp.svd_module(elite, 100);
+
+    peachhelp.plot_vector(boat_svd['mean'], color = "#ba34eb", label = 'Boat Mean Stroke', suppress_power=True, label2='Boat Mean Recovery', ax = bx)
+
+    if seat_num !=7:
+        stroke_svd = peachhelp.svd_module(elite, 100, 7)
+        peachhelp.plot_vector(stroke_svd['mean'], color = "#30d93e", suppress_power=True, label2='Stroke Mean Recovery', ax = bx)
+
+        
+
+
+    ax[1].line(x = theta3[chosen_stroke], line_color = "#e3242b", y = thetadot3[chosen_stroke], line_join = 'bevel', line_width = 2, legend_label="Actual Stroke")
+    ax[1].multi_line(xs = ideal_stroke['idealx'], ys = ideal_stroke['idealy'], line_join = 'bevel', line_width = 2, legend_label="Ideal Stroke")
+
+
+    split = elite.get_rating_chunks()
+
+
+    for idx, one_split in enumerate(split):
+        split_svd = peachhelp.svd_module(elite, 100, seat_num, (one_split[0], one_split[1]))
+        peachhelp.plot_vector(split_svd['mean'], ax=cx, color=Oranges9[idx], 
+        label="Stroke %d-%d, avg s/m: %.1f, avg W: %.1fW" 
+        %(one_split[0]+1, one_split[1]+1, 
+        elite.get_average_aper_data(one_split)[129], 
+        elite.get_average_aper_data(one_split)[1+seat_num]), 
+        label2 = "Stroke %d-%d, avg Max Force: %.2f%%" 
+        %(one_split[0]+1, one_split[1]+1, 
+        elite.get_average_aper_data(one_split)[121+seat_num]))
+
+
+
+    my_grid = grid([
+        [ax[0],ax[1]],
+        [bx[0], bx[1]],
+        [cx[0], cx[1]]
+    ])
+
+    my_grid.sizing_mode = "scale_both"
+
+    js_resources = INLINE.render_js()
+    css_resources = INLINE.render_css()
+
+    # render template
+    script, div = components(my_grid)
+    html = render_template(
+        'workout.html',
+        workout = workout,
+        plot_script=script,
+        plot_div=div,
+        js_resources=js_resources,
+        css_resources=css_resources,
+    )
     return make_response(html)
+
+    # html = render_template('workout.html' , workout=practice, image = imagestring)
+    # return make_response(htm
 
 
 @flask_login.login_required

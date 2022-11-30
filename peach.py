@@ -14,6 +14,8 @@ import pandas as pd
 import numpy as np
 from datetime import date
 from dateutil import parser
+from itertools import groupby, chain
+
 
 class PeachData():
     def __init__(self, fname):
@@ -98,6 +100,9 @@ class PeachData():
             resampeds[seat] = self.resample_stroke(i, new_cols, npts)
         return np.mean(resampeds, axis=0)
 
+    def get_boat_power(self):
+        return self.aper_data[:,133][:-1]
+
     def get_date(self):
         return self.date
 
@@ -106,6 +111,49 @@ class PeachData():
 
     def get_athletes(self):
         return self.athlete_map
+    
+    def get_start_times(self):
+        return self.start_times
+
+    def get_average_aper_data(self, stroke_rng = None):
+        if stroke_rng:
+            start, end = stroke_rng
+            return np.mean(self.aper_data[start:end+1], axis=0)
+        else:
+            return np.mean(self.aper_data, axis=0)
+
+    def get_rating_chunks(self):
+        event = self.aper_data[:,129][:-1]
+        event = list(zip(event, list(range(len(event)))))
+        event.sort(key = lambda y: y[0])
+        delta_t = 2
+
+        # rating filter
+        r = [list(v) for (k, v) in groupby(event, lambda v: v[0] // delta_t)]
+
+        def solve(r):
+            for e in r:
+                yield min(e, key = lambda y: y[1])
+                yield max(e, key = lambda y: y[1])
+
+
+        tup_r = list(solve(r))
+        r = sorted(tup_r, key = lambda y: y[1])
+
+        # remove all sequential strokes
+        useSet = set()
+        r_small = []
+        for elem in r:
+            if elem[1]-1 not in useSet:
+                r_small.append(elem)
+            useSet.add(elem[1])
+        
+
+
+        pairs = [(r_small[i][1], r_small[i+1][1]) for i in range(len(r_small)-1)]
+
+        return pairs
+
 
 
 
@@ -122,6 +170,9 @@ def main():
     print("DATE")
     print(elite.date)
     print(elite.misc_info)
+    # print(elite.get_boat_power())
+    print(elite.aper_headers[129])
+    print(elite.get_rating_chunks())
     # print(elite.resampled_boat_stroke(75, [1,9,17], 100))
     # print(elite.start_times)
     # print(elite.data[:5])

@@ -1,4 +1,5 @@
 Flask==2.0.0
+bokeh==3.0.2
 flask-login==0.6.2
 gunicorn==20.0.4
 psycopg2-binary
@@ -15,3 +16,5 @@ bcrypt==3.2.0
 xlsxwriter
 openpyxl
 pandas
+seaborn==0.12.1
+Werkzeug==2.2.2

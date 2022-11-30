@@ -32,15 +32,6 @@
 
             <div class="card" style="width: 100%; ">
                 <div class="card-body">
-                    {% if isAdmin %}
-                    <form action="/editWorkout" method="POST">
-                        <input style="height: 3rem; font-size: 16pt " name="newVal" value="{{workout['title']}}" />
-                        <input type="hidden" name="field" value="title" />
-                        <input type="hidden" name="workoutId" value="{{workout['_id']}}" />
-                        <button type="submit" class="btn btn-primary">Update title</button>
-                        <a class="btn btn-danger" href="/deleteWorkout?wid={{workout['_id']}}&aid={{athId}}">Delete</a>
-                    </form>
-                    {% else %}
                     <h3>{{workout['title']}}</h3>
                     {% endif %}
                     <div class="row" style="margin-bottom: 1rem;">
@@ -59,6 +50,7 @@
                 </div>      
             </div>
         </div>
+
 
 
 
