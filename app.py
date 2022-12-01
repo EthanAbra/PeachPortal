@@ -1,4 +1,7 @@
-from flask import Flask, request, make_response, redirect, url_for, Response
+from gevent import monkey
+monkey.patch_all()
+
+from flask import Flask, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from werkzeug.security import generate_password_hash, check_password_hash, gen_salt
 import flask_login
@@ -10,7 +13,7 @@ import database as db
 import random
 import bcrypt
 import peachhelp
-import xlsxMethods
+from xlsxMethods import xlsxRead
 from io import StringIO
 from datetime import datetime
 import mimetypes
@@ -19,7 +22,7 @@ from bson.binary import Binary
 import io
 import base64
 import numpy as np
-
+import magic
 from bokeh.models import Label, LabelSet
 import seaborn as sns
 from bokeh.layouts import layout, grid
@@ -28,7 +31,30 @@ from bokeh.embed import components
 from bokeh.plotting import figure
 from bokeh.palettes import Oranges9
 from bokeh.resources import INLINE
+import json
+import uuid
+from flask_socketio import SocketIO, emit
+from threading import Lock, Thread
+import time
 
+from engineio.payload import Payload
+
+Payload.max_decode_packets = 500
+
+class ThreadWithReturnValue(Thread):
+    
+    def __init__(self, group=None, target=None, name=None,
+                 args=(), kwargs={}, Verbose=None):
+        Thread.__init__(self, group, target, name, args, kwargs)
+        self._return = None
+
+    def run(self):
+        if self._target is not None:
+            self._return = self._target(*self._args,
+                                                **self._kwargs)
+    def join(self, *args):
+        Thread.join(self, *args)
+        return self._return
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -42,17 +68,30 @@ if 'secret_key' not in os.environ:
 else:
     secret_key = os.environ['secret_key']
 
+
+
+thread = None
+thread_lock = Lock()
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
+
+global message_queue
+message_queue = []
 
 app.secret_key = secret_key
 app.config['SECRET_KEY'] = app.secret_key
+
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024* 20
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = '/login'
 login_manager.init_app(app)
 
+socketio = SocketIO(app, async_mode = "gevent", cors_allowed_origins='*', manage_session=False, always_connect = True)
+
+
 class User(flask_login.UserMixin):
     pass
+
 
 #-----------------------------------------------------------------------
 """ flask_login methods """
@@ -111,7 +150,7 @@ def home():
         email = session['user']
     user = user_loader(email)
     athlete = db.queryAthlete(user.id)
-    html = render_template('home.html', perms=athlete['permissions'], first=athlete['first'])
+    html = render_template('home.html', perms=athlete['permissions'], first=athlete['first'], async_mode=socketio.async_mode)
     return make_response(html)
 
 @app.route('/howToUpload', methods=['GET'])
@@ -120,60 +159,37 @@ def howToUpload():
     return make_response(html)
 
 #-----------------------------------------------------------------------
-""" File upload and download methods """
+""" File upload method"""
 #-----------------------------------------------------------------------
+@socketio.on('start-transfer')
+def start_transfer(filename, size):
+    """Process an upload request from the client."""
+    _, ext = os.path.splitext(filename)
+    if ext in ['.exe', '.bin', '.js', '.sh', '.py', '.php']:
+        return False  # reject the upload
 
-""" download a blank .xlsx file for recording a workout """
-@flask_login.login_required
-@app.route('/download')
-def download():
+    id = uuid.uuid4().hex  # server-side filename
+    with open( id + ext, 'wb') as f:
+        pass
+    return id + ext  # allow the upload
 
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
-        
-    user = user_loader(email)
-    athleteId = user.id
-    athlete = db.queryAthlete(athleteId)
-    teamId = athlete['teamId']
+
+@socketio.on('write-chunk')
+def write_chunk(filename, offset, data):
+    """Write a chunk of data sent by the client."""
+    if not os.path.exists(filename):
+        return False
     try:
-        blankOutput = xlsxMethods.xlsxBlank(teamId)
-        response = Response()
-        response.data = blankOutput.read()
-        response.status_code = 200
-        file_name = 'workout_{}.xlsx'.format(datetime.now().strftime('%d/%m/%Y'))
-        mimetype_tuple = mimetypes.guess_type(file_name)
-        headers = {
-            'Pragma': "public",  # required,
-            'Expires': '0',
-            'Cache-Control': 'must-revalidate, post-check=0, pre-check=0',
-            'Cache-Control': 'private',  # required for certain browsers,
-            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition': 'attachment; filename=\"%s\";' % file_name,
-            'Content-Transfer-Encoding': 'binary',
-            'Content-Length': len(response.data)
-        }
+        with open( filename, 'r+b') as f:
+            f.seek(offset)
+            f.write(data)
+    except IOError:
+        return False
+    return True
 
-        for k in headers:
-            response.headers[k] = headers[k]
-
-        if not mimetype_tuple[1] is None:
-            response.update({
-                'Content-Encoding': mimetype_tuple[1]
-            })
-        response.set_cookie('fileDownload', 'true', path='/')
-
-        print(f'/download accessed by {athlete["first"]} {athlete["last"]}')
-
-        return response
-    except Exception as e:
-        print(e, ' in download')
-
-""" upload a .xlsx file for processing and storing in database """
-@flask_login.login_required
-@app.route('/upload', methods=["GET", 'POST'])
-def upload():
+@socketio.on('write-complete')
+def write_complete(filename):
+    print("revced wr comp")
     if 'user' not in session:
         return redirect('/login')
     else:
@@ -183,74 +199,85 @@ def upload():
     athlete = db.queryAthlete(athleteId)
     teamId = athlete['teamId']
 
-    if request.method == "GET":
-        return redirect('/home')
+    filetype = magic.from_file(filename)
+    print(filetype)
+    if not filetype.startswith('Microsoft Excel') and not filetype.startswith('Zip archive data'):
+        os.remove(filename)
+        return False
+    # file = open(filename, 'r')
+    success, workout = xlsxRead(filename, teamId)
 
-    file = request.files['sheet']
+    if not success:
+        os.remove(filename)
+        return False
 
-    try:
-        success, workout = xlsxMethods.xlsxRead(file, teamId)
-        if not success:
-            message = urllib.parse.quote(workout)
-            return redirect(f'/home?e=1&em={message}')
+    addedId = db.addWorkout(workout, teamId)
+    os.remove(filename)
+    if not addedId:
+        return False
+    else:
+        print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
+    return True, addedId, teamId, workout['athlete_list']
 
-        addedId = db.addWorkout(workout, teamId)
-        if not addedId:
-            flash("failed to add workout")
-        else:
-            print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
 
-            if len(workout['athlete_list']) :
-                for ath_idx, athlete in enumerate(workout['athlete_list']):
-                    first, last = athlete.split() # TODO: this is dangerous!!!!!!
-                    print()
-                    athlete_query = db.queryAthleteByName(first, last, teamId) # TODO: check if working, then introduce fuzzy matching
-                    if athlete_query:
-                        athleteId = athlete_query['_id']
-                        print(f'attributed to {athlete}', end='\r')
-                        edited = db.addWorkoutToAthlete(athleteId, addedId)
-                    else: # we need to create a new athlete for this individual
-                        error = ''
-                        newId = random.randint(10, 100000)
-                        # add the login credentials to credentials DB
-                        add = db.addCredentials(newId, athlete, "pwhash", "salt")
-                        if not add:
-                            error += 'failed to add user cred'
-        
-                        # create athlete document from entered info
-                        permissions = ['']
-                        # if 'admin' in request.form.keys():
-                        #     permissions.append('admin')
-                        side = 'starboard'
-                        if ath_idx % 2:
-                            side = 'port'
+    
+    
+@socketio.on('valid-athletes')
+def valid_athletes(addedId, teamId, athleteList):
+    if len(athleteList) :
+        for ath_idx, athlete in enumerate(athleteList):
+            if len(athlete)==1:
+                first, last = athlete[0], athlete[0]
+            else:
+                first, last = athlete.split() # TODO: this is dangerous!!!!!!
+            # print()
+            athlete_query = db.queryAthleteByName(first, last, teamId) # TODO: introduce fuzzy matching
+            if athlete_query:
+                athleteId = athlete_query['_id']
+                print(f'attributed to {athlete}', end='\r')
 
-                        athlete = {
-                            "_id" : newId,
-                            "first" : first,
-                            "last" : last,
-                            "permissions" : permissions,
-                            "workouts" : [addedId],
-                            "side" : side,
-                            "active" : True,
-                            "teamId" : teamId
-                        }
-                        # add athlete document to athlete db
-                        add = db.addAthlete(athlete)
-                        if not add:
-                            error += "failed to add athlete"
-                        
-                        if len(error):
-                            return redirect(f'/home?e=1&em={error}')
+                edited = db.addWorkoutToAthlete(athleteId, addedId)
+            else: # we need to create a new athlete for this individual
 
-                        print(f'attributed to {athlete}', end='\r')
-                        # edited = db.addWorkoutToAthlete(add, addedId)
-            return redirect('workout?w={}'.format(addedId))
-        
-    except Exception as e:
-        print(str(e), ' in upload')
-        flash("There was an error uploading the file")
-        return redirect('/home')
+                error = ''
+                newId = random.randint(10, 100000)
+                # add the login credentials to credentials DB
+                add = db.addCredentials(newId, athlete, "pwhash", "salt")
+                if not add:
+                    error += 'failed to add user cred'
+
+                # create athlete document from entered info
+                permissions = ['']
+                # if 'admin' in request.form.keys():
+                #     permissions.append('admin')
+                side = 'starboard'
+                if ath_idx % 2:
+                    side = 'port'
+
+                athlete = {
+                    "_id" : newId,
+                    "first" : first,
+                    "last" : last,
+                    "permissions" : permissions,
+                    "workouts" : [addedId],
+                    "side" : side,
+                    "active" : True,
+                    "teamId" : teamId
+                }
+                # add athlete document to athlete db
+                add = db.addAthlete(athlete)
+                if not add:
+                    error += "failed to add athlete"
+                
+                if len(error):
+                    return redirect(f'/home?e=1&em={error}')
+
+                print(f'attributed to {athlete}', end='\r')
+                # edited = db.addWorkoutToAthlete(add, addedId)
+        return True
+    else:
+        db.deleteWorkout(addedId)
+        return False
 
     
 
@@ -462,6 +489,7 @@ def workouts():
         delPerm = True
     else:
         delPerm = False
+
     
     html = render_template('workouts.html' ,workouts=workouts, delPerm=delPerm, athId=athlete['_id'])
     return make_response(html)
@@ -489,7 +517,7 @@ def delete():
             print(f"Delete accessed by unauthorized user {athlete['first']} {athlete['last']}")
             return render_template('error.html'), 500
         # verify requesting athlete 'owns' that workout
-        if athlete['teamId'] != db.queryWorkout(workoutId)['teamId']:
+        if athlete['teamId'] != db.queryWorkoutMeta(workoutId)['teamId']:
             print(f"Cross-team delete attempted by user {athlete['first']} {athlete['last']} on team:{athlete['teamId']}")
             return render_template('error.html'), 500
         
@@ -505,7 +533,7 @@ def delete():
             print(f'workout {workoutId} deleted, removed from {ctr} profiles')
             return redirect('/workouts')
 
-    workout = db.queryWorkout(workoutId)
+    workout = db.queryWorkoutMeta(workoutId)
     html = render_template('confirmDelete.html', workout=workout, wid=workoutId, aid=athleteId)
     return make_response(html)
 
@@ -533,7 +561,7 @@ def workout():
     if 'cox' not in athlete['permissions']:
         return redirect(f'/myworkout?w={workoutId}')
 
-    practice = db.queryWorkout(workoutId)
+    practice = db.queryWorkoutData(workoutId)
 
     elite = practice['peach_data']
 
@@ -636,7 +664,7 @@ def myworkout():
     workoutId = request.args.get('w')
     
 
-    practice = db.queryWorkout(workoutId)
+    practice = db.queryWorkoutData(workoutId)
 
     elite = practice['peach_data']
 
@@ -695,8 +723,6 @@ def myworkout():
     if seat_num !=7:
         stroke_svd = peachhelp.svd_module(elite, 100, 7)
         peachhelp.plot_vector(stroke_svd['mean'], color = "#30d93e", suppress_power=True, label2='Stroke Mean Recovery', ax = bx)
-
-        
 
 
     ax[1].line(x = theta3[chosen_stroke], line_color = "#e3242b", y = thetadot3[chosen_stroke], line_join = 'bevel', line_width = 2, legend_label="Actual Stroke")
@@ -861,3 +887,8 @@ def allAthletes():
     for a in ath:
         html += str(a) + '\n'
     return make_response(html)
+
+
+if __name__ == '__main__':
+    socketio.run(app, port=8000, host='0.0.0.0', debug=True)
+    print('socket io start')

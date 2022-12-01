@@ -19,32 +19,36 @@ from itertools import groupby, chain
 
 class PeachData():
     def __init__(self, fname):
-        df = pd.read_excel(fname, header=None)
-        # read times for start of each stroke from "Aperiodic" section of file
+        try:
+            df = pd.read_excel(fname, header=None)
+            # read times for start of each stroke from "Aperiodic" section of file
 
-        athletes_start = np.flatnonzero((df[1]=='Name') & (df[2]=='Abbr'))[0]
-        self.athlete_map = df.iloc[athletes_start+1: athletes_start+9, 1].dropna().to_numpy(copy=True)
+            athletes_start = np.flatnonzero((df[1]=='Name') & (df[2]=='Abbr'))[0]
+            self.athlete_map = df.iloc[athletes_start+1: athletes_start+9, 1].dropna().to_numpy(copy=True)
 
-        self.date = parser.parse(df.iloc[2, 3])
+            self.date = parser.parse(df.iloc[2, 3])
 
-        misc_start = np.flatnonzero((df[0]=='SessionComments') & (df[1]=='SessionName'))[0]
-        misc_end = np.flatnonzero((df[0]=='=====') & (df[1]=='Boat Info'))[0]
+            misc_start = np.flatnonzero((df[0]=='SessionComments') & (df[1]=='SessionName'))[0]
+            misc_end = np.flatnonzero((df[0]=='=====') & (df[1]=='Boat Info'))[0]
 
-        self.misc_info = df.iloc[misc_start+1:misc_end, 0].dropna().to_numpy(copy=True)
+            self.misc_info = df.iloc[misc_start+1:misc_end, 0].dropna().to_numpy(copy=True)
 
 
-        aper_start = np.flatnonzero((df[1] == "Aperiodic") & (df[2] == "0x800A"))[0]
-        aper_stop = np.flatnonzero((df[1] == "Aperiodic") & (df[2] == "0x8001"))[0]
-        self.start_times = df.iloc[aper_start+5:aper_stop,0].to_numpy(dtype=int, copy=True)
-        self.aper_headers = df.iloc[aper_start + 1].dropna().to_numpy(copy=True)
-        self.aper_data = df.iloc[aper_start+5:aper_stop].dropna(axis=1, how='all').to_numpy(dtype=float, copy=True)
-        
-        # read the rest of the data from the "Periodic" section
-        per_start = np.flatnonzero(df[1] == "Periodic")[0]
-        self.headers = df.iloc[per_start + 1].dropna().to_numpy(copy=True)
-        self.data = df.iloc[per_start+3:].dropna(axis=1, how='all').to_numpy(dtype=float, copy=True)
-        self.t0 = int(self.data[0,0])  # initial time
-        self.dt = 20  # timestep, in milliseconds
+            aper_start = np.flatnonzero((df[1] == "Aperiodic") & (df[2] == "0x800A"))[0]
+            aper_stop = np.flatnonzero((df[1] == "Aperiodic") & (df[2] == "0x8001"))[0]
+            self.start_times = df.iloc[aper_start+5:aper_stop,0].to_numpy(dtype=int, copy=True)
+            self.aper_headers = df.iloc[aper_start + 1].dropna().to_numpy(copy=True)
+            self.aper_data = df.iloc[aper_start+5:aper_stop].dropna(axis=1, how='all').to_numpy(dtype=float, copy=True)
+            
+            # read the rest of the data from the "Periodic" section
+            per_start = np.flatnonzero(df[1] == "Periodic")[0]
+            self.headers = df.iloc[per_start + 1].dropna().to_numpy(copy=True)
+            self.data = df.iloc[per_start+3:].dropna(axis=1, how='all').to_numpy(dtype=float, copy=True)
+            self.t0 = int(self.data[0,0])  # initial time
+            self.dt = 20  # timestep, in milliseconds
+        except Exception as e:
+            return e
+
 
     @property
     def numstrokes(self):
