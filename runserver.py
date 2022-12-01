@@ -2,7 +2,7 @@
 
 from sys import argv, exit, stderr
 #from os import system
-from app import socketio, app
+from init import socketio, app
 
 def main(argv):
 
