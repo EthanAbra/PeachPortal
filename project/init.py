@@ -5,16 +5,15 @@ from flask import Flask, request, make_response, redirect, url_for, Response, cu
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import LoginManager
 from werkzeug.security import generate_password_hash, check_password_hash, gen_salt
-import flask_login
 import requests
 import os
 import urllib3
 import urllib
-import database as db
+import project.database as db
 import random
 import bcrypt
-import peachhelp
-from xlsxMethods import xlsxRead
+import project.peachhelp
+from project.xlsxMethods import xlsxRead
 from io import StringIO
 from datetime import datetime
 import mimetypes
@@ -33,6 +32,7 @@ from bokeh.plotting import figure
 from bokeh.palettes import Oranges9
 from bokeh.resources import INLINE
 import json
+import flask_login
 import uuid
 from flask_socketio import SocketIO, emit
 from threading import Lock, Thread
@@ -65,47 +65,52 @@ socketio = SocketIO(app, async_mode = "gevent", cors_allowed_origins='*', manage
 
 
 def create_app():
-    socketio.init_app(app)
-
+    socketio.init_app(app, logger=True, engineio_logger=True)
     login_manager = LoginManager()
     login_manager.login_view = '/login'
     login_manager.init_app(app)
 
+    class User(flask_login.UserMixin):
+        pass
+
+    """ loads a user from the database, using their email as the key """
+    @login_manager.user_loader
+    def user_loader(email):
+        creds = db.getCredentials(email)
+        if not creds:
+            return
+
+        user = User()
+        user.id = creds['_id']
+
+        return user
+
+    """ loads the user using the 'email' cookie set during login"""
+    @login_manager.request_loader
+    def request_loader(request):
+        if 'user' not in session:
+            return
+        else:
+            email = session['user']
+
+        creds = db.getCredentials(email)
+        user = User()
+        user.id = creds['_id']
+        return user
+
+    return app
 
 
-class User(flask_login.UserMixin):
-    pass
+
+#class User(flask_login.UserMixin):
+#    pass
 
 
 #-----------------------------------------------------------------------
 """ flask_login methods """
 #-----------------------------------------------------------------------
 
-""" loads a user from the database, using their email as the key """
-@login_manager.user_loader
-def user_loader(email):
-    creds = db.getCredentials(email)
-    if not creds:
-        return
 
-    user = User()
-    user.id = creds['_id']
-
-    return user
-
-""" loads the user using the 'email' cookie set during login"""
-@login_manager.request_loader
-def request_loader(request):
-    if 'user' not in session:
-        return
-    else:
-        email = session['user']
-
-    creds = db.getCredentials(email)
-    user = User()
-    user.id = creds['_id']
-    
-    return user
 
 
 #-----------------------------------------------------------------------

@@ -1,3 +1,3 @@
-from project.__init__ import create_app
+from project.init import create_app
 
 app = create_app()
