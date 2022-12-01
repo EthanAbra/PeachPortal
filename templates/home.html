@@ -9,31 +9,8 @@
         <title>PeachPortal- Home</title>
         <script src="https://code.jquery.com/jquery-3.6.0.slim.js"   integrity="sha256-HwWONEZrpuoh951cQD1ov2HUK5zA5DwJ1DNUXaM6FsY="   crossorigin="anonymous"></script>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.min.js"></script>
-        <script type="text/javascript">
-            $(document).ready(function () {
-                namespace =  ''
-                var socket = io()
-                socket.on( 'connect', function() {
-                    socket.emit( 'my event', {
-                        data: 'User Connected'
-                    } )
-                } )
-                $("#run_button_id").click(function () {
-                    message = "ping"
-                    socket.emit("client_to_server", { msg: message })
-                })
-                socket.on( "server_to_client", function( msg ) {
-                    console.log( msg )
-                    if( msg.type == 'error' ) {
-                        $( 'div.message_holder' ).append( '<div class="alert alert-danger" role="alert">' + msg.message + '</div>')
-                    }
-                    else {
-                        $( 'div.message_holder' ).append( '<div class="alert alert-success" role="alert">' + msg.message + '</div>')
-                    }
-                })
-            })
-        </script>
+        <link rel ="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">    
+
     </head>
     <body>
         <div class="container-fluid">
@@ -86,7 +63,6 @@
 
                     </div>
                 </div>
-                <button id="run_button_id">Ping</button>
                 {% if 'cox' in perms or 'admin' in perms %}
                 <div class="row">
                     <div class="col card text-center" style="margin: 1rem;">
@@ -96,14 +72,16 @@
                                 <div class="row-4"><h3>Upload workout</h3></div>
                             </div>
                             <div class="col-4">
-                                <form method="POST" action="/upload" enctype="multipart/form-data" id="upload">
-                                    <input type="file" name="sheet" id="file" class="btn btn-primary btn-block" hidden/>
-                                    <label for="file" class="btn btn-primary btn-block">Upload Powerline Export</label>
-                                </form>
+                                <div id="dropzone">
+                                    Drop files here!
+                                </div>
+                                <button id="upload" class = "btn btn-primary btn-block">Upload files</button>
+                                <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.min.js"></script>
+                                <script src="{{ url_for('static', filename='js/main.js') }}"></script>
                             </div>
                         </div>
-                        <div class="alert alert-danger" role="alert"></div>
-                        <div class="alert alert-success" role="alert"></div>
+                        <div id="filelist"></div>
+                        <div id="messagelist" role="alert"></div>
                     </div>
                     {% endif %}
                 </div>
@@ -137,9 +115,6 @@
             </script>
         {% endif %}
 
-        <script>
-
-        </script>
 
         <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
         
