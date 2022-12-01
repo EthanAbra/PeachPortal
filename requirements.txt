@@ -20,5 +20,7 @@ openpyxl
 pandas
 seaborn==0.12.1
 Werkzeug==2.2.2
-python-magic-bin==0.4.14
+python-libmagic
+python-magic-bin
 gevent==22.10.2
+python-magic==0.4.27
