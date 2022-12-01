@@ -22,7 +22,7 @@ from bson.binary import Binary
 import io
 import base64
 import numpy as np
-import magic
+from polyfile.magic import MagicMatcher
 from bokeh.models import Label, LabelSet
 import seaborn as sns
 from bokeh.layouts import layout, grid
@@ -36,6 +36,7 @@ import uuid
 from flask_socketio import SocketIO, emit
 from threading import Lock, Thread
 import time
+import polyfile
 
 from engineio.payload import Payload
 
@@ -199,9 +200,15 @@ def write_complete(filename):
     athlete = db.queryAthlete(athleteId)
     teamId = athlete['teamId']
 
-    filetype = magic.from_file(filename)
-    print(filetype)
-    if not filetype.startswith('Microsoft Excel') and not filetype.startswith('Zip archive data'):
+    def mimewrap(filename):
+        for match in MagicMatcher.DEFAULT_INSTANCE.match(filename):
+            print(f"Match string: {match!s}")
+            if str(match).startswith("Microsoft Excel"):
+                return True
+
+
+    
+    if not mimewrap(filename):
         os.remove(filename)
         return False
     # file = open(filename, 'r')
