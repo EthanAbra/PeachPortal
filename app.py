@@ -233,7 +233,7 @@ def write_complete(filename):
 def valid_athletes(addedId, teamId, athleteList):
     if len(athleteList) :
         for ath_idx, athlete in enumerate(athleteList):
-            if len(athlete)==1:
+            if len(athlete.split())==1:
                 first, last = athlete[0], athlete[0]
             else:
                 first, last = athlete.split() # TODO: this is dangerous!!!!!!
