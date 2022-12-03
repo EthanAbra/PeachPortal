@@ -1,6 +1,7 @@
 const chunk_size = 64 * 1024;
 var files = [];
 var socketio = io();
+console.log(socketio)
 // file drop handling
 var dropzone = document.getElementById('dropzone');
 dropzone.ondragover = function(e) {

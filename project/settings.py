@@ -2,8 +2,8 @@ import os
 from flask import Flask
 
 
-TEMPLATE_DIR = '../templates'
-STATIC_DIR = '../static'
+TEMPLATE_DIR = '.././templates'
+STATIC_DIR = '.././static'
 
 if 'secret_key' not in os.environ:
     from dotenv import load_dotenv

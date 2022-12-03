@@ -1,27 +1,3 @@
-from gevent import monkey
-monkey.patch_all()
-
-from flask import Flask, request, make_response, redirect, url_for, Response, current_app
-from flask import render_template, Markup, flash, session, jsonify, abort
-from flask_login import LoginManager
-from werkzeug.security import generate_password_hash, check_password_hash, gen_salt
-import requests
-import os
-import urllib3
-import urllib
-import project.database as db
-import random
-import bcrypt
-import project.peachhelp
-from project.xlsxMethods import xlsxRead
-from io import StringIO
-from datetime import datetime
-import mimetypes
-import pickle
-from bson.binary import Binary
-import io
-import base64
-import numpy as np
 from polyfile.magic import MagicMatcher
 from bokeh.models import Label, LabelSet
 import seaborn as sns
@@ -32,17 +8,17 @@ from bokeh.plotting import figure
 from bokeh.palettes import Oranges9
 from bokeh.resources import INLINE
 import json
-import flask_login
+from flask_login import current_user, login_required, logout_user
 import uuid
-from flask_socketio import SocketIO, emit
 from threading import Lock, Thread
-import time
 import polyfile
-from .settings import app
-
-from engineio.payload import Payload
-
-Payload.max_decode_packets = 500
+from . import peachhelp
+from flask import Flask, Blueprint, request, make_response, redirect, url_for, Response, current_app
+from flask import render_template, Markup, flash, session, jsonify, abort
+from . import database as db
+import numpy as np
+from . import socketio
+from . import login_manager
 
 class ThreadWithReturnValue(Thread):
     
@@ -59,407 +35,48 @@ class ThreadWithReturnValue(Thread):
         Thread.join(self, *args)
         return self._return
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-socketio = SocketIO(app, async_mode = "gevent", cors_allowed_origins='*', manage_session=False, always_connect = True)
 
 
-def create_app():
-    socketio.init_app(app, logger=True, engineio_logger=True)
-    login_manager = LoginManager()
-    login_manager.login_view = '/login'
-    login_manager.init_app(app)
-
-    class User(flask_login.UserMixin):
-        pass
-
-    """ loads a user from the database, using their email as the key """
-    @login_manager.user_loader
-    def user_loader(email):
-        creds = db.getCredentials(email)
-        if not creds:
-            return
-
-        user = User()
-        user.id = creds['_id']
-
-        return user
-
-    """ loads the user using the 'email' cookie set during login"""
-    @login_manager.request_loader
-    def request_loader(request):
-        if 'user' not in session:
-            return
-        else:
-            email = session['user']
-
-        creds = db.getCredentials(email)
-        user = User()
-        user.id = creds['_id']
-        return user
-
-    return app
-
-
-
-#class User(flask_login.UserMixin):
-#    pass
-
-
-#-----------------------------------------------------------------------
-""" flask_login methods """
-#-----------------------------------------------------------------------
-
-
-
+# Blueprint Configuration
+main_bp = Blueprint(
+    "main_bp", __name__, template_folder="templates", static_folder="static"
+)
 
 #-----------------------------------------------------------------------
 """ Static page rendering """
 #-----------------------------------------------------------------------
 
 """ renders the index page """
-@app.route('/', methods=['GET'])
+@main_bp.route('/', methods=['GET'])
 def index():
     html = render_template('index.html')
     return make_response(html)
 
 """ renders the about page """
-@app.route('/about', methods=['GET'])
+@main_bp.route('/about', methods=['GET'])
 def about():
     html = render_template('about.html')
     return make_response(html)
 
 """ renders the home page """
-@flask_login.login_required
-@app.route('/home', methods=['GET'])
+@login_required
+@main_bp.route('/home', methods=['GET'])
 def home():
     if 'user' not in session:
         return redirect('/login')
     else:
         email = session['user']
-    user = user_loader(email)
+    user = current_user
     athlete = db.queryAthlete(user.id)
     html = render_template('home.html', perms=athlete['permissions'], first=athlete['first'], async_mode=socketio.async_mode)
     return make_response(html)
 
-@app.route('/howToUpload', methods=['GET'])
+@main_bp.route('/howToUpload', methods=['GET'])
 def howToUpload():
     html = render_template('howToUpload.html')
     return make_response(html)
 
-#-----------------------------------------------------------------------
-""" File upload method"""
-#-----------------------------------------------------------------------
-@socketio.on('start-transfer')
-def start_transfer(filename, size):
-    """Process an upload request from the client."""
-    _, ext = os.path.splitext(filename)
-    if ext in ['.exe', '.bin', '.js', '.sh', '.py', '.php']:
-        return False  # reject the upload
 
-    id = uuid.uuid4().hex  # server-side filename
-    with open( id + ext, 'wb') as f:
-        pass
-    return id + ext  # allow the upload
-
-
-@socketio.on('write-chunk')
-def write_chunk(filename, offset, data):
-    """Write a chunk of data sent by the client."""
-    if not os.path.exists(filename):
-        return False
-    try:
-        with open( filename, 'r+b') as f:
-            f.seek(offset)
-            f.write(data)
-    except IOError:
-        return False
-    return True
-
-@socketio.on('write-complete')
-def write_complete(filename):
-    print("revced wr comp")
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
-    user = user_loader(email)
-    athleteId = user.id
-    athlete = db.queryAthlete(athleteId)
-    teamId = athlete['teamId']
-
-    def mimewrap(filename):
-        for match in MagicMatcher.DEFAULT_INSTANCE.match(filename):
-            print(f"Match string: {match!s}")
-            if str(match).startswith("Microsoft Excel"):
-                return True
-
-
-    
-    if not mimewrap(filename):
-        os.remove(filename)
-        return False
-    # file = open(filename, 'r')
-    success, workout = xlsxRead(filename, teamId)
-
-    if not success:
-        os.remove(filename)
-        return False
-
-    addedId = db.addWorkout(workout, teamId)
-    os.remove(filename)
-    if not addedId:
-        return False
-    else:
-        print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
-    return True, addedId, teamId, workout['athlete_list']
-
-
-    
-    
-@socketio.on('valid-athletes')
-def valid_athletes(addedId, teamId, athleteList):
-    if len(athleteList) :
-        for ath_idx, athlete in enumerate(athleteList):
-            if len(athlete.split())==1:
-                first, last = athlete[0], athlete[0]
-            else:
-                first, last = athlete.split() # TODO: this is dangerous!!!!!!
-            # print()
-            athlete_query = db.queryAthleteByName(first, last, teamId) # TODO: introduce fuzzy matching
-            if athlete_query:
-                athleteId = athlete_query['_id']
-                print(f'attributed to {athlete}', end='\r')
-
-                edited = db.addWorkoutToAthlete(athleteId, addedId)
-            else: # we need to create a new athlete for this individual
-
-                error = ''
-                newId = random.randint(10, 100000)
-                # add the login credentials to credentials DB
-                add = db.addCredentials(newId, athlete, "pwhash", "salt")
-                if not add:
-                    error += 'failed to add user cred'
-
-                # create athlete document from entered info
-                permissions = ['']
-                # if 'admin' in request.form.keys():
-                #     permissions.append('admin')
-                side = 'starboard'
-                if ath_idx % 2:
-                    side = 'port'
-
-                athlete = {
-                    "_id" : newId,
-                    "first" : first,
-                    "last" : last,
-                    "permissions" : permissions,
-                    "workouts" : [addedId],
-                    "side" : side,
-                    "active" : True,
-                    "teamId" : teamId
-                }
-                # add athlete document to athlete db
-                add = db.addAthlete(athlete)
-                if not add:
-                    error += "failed to add athlete"
-                
-                if len(error):
-                    return redirect(f'/home?e=1&em={error}')
-
-                print(f'attributed to {athlete}', end='\r')
-                # edited = db.addWorkoutToAthlete(add, addedId)
-        return True
-    else:
-        db.deleteWorkout(addedId)
-        return False
-
-    
-
-#-----------------------------------------------------------------------
-""" Authentication methods """
-#-----------------------------------------------------------------------
-
-""" renders the login page and processes user logins"""
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    error=''
-
-    # if the user has already logged in (and has not logged out)
-    # sign them in
-    if 'user' in session:
-        email = session['user'] 
-        user = user_loader(email)
-        athlete = db.queryAthlete(user.id)
-        print(f'{athlete["first"]} {athlete["last"]} logged in, old session')
-        return redirect('/home')
-
-
-    # on form submission (POST request)
-    if request.method == 'POST':
-
-        # get email and password from form
-        email = request.form['username']
-        password = bytes(request.form['password'],'utf-8')
-        # get the credentials 
-        creds = db.getCredentials(email)
-
-        session.clear()
-
-        # getCredentials returns none if email not found in DB
-        if not creds:
-            error = 'Invalid Credentials. Please try again.'
-        # else check password hash
-        else:
-
-            email = creds['email']
-            pwHash = creds['pwHash']
-            salt = creds['salt']
-            # check the entered password against that in database
-            verified = bcrypt.checkpw(password, pwHash)
-            if verified:
-                user = user_loader(email)
-                flask_login.login_user(user)
-                session.permanent = False
-                res = redirect('/home')
-                session['user'] = email
-                print(f'{email} logged in, new session')
-                return res
-            else:
-                error = 'Invalid Credentials. Please try again.'
-
-
-    return render_template('login.html', error=error)
-
-""" log out the user """
-@flask_login.login_required
-@app.route('/logout')
-def logout():
-    flask_login.logout_user()
-    res = redirect('/')
-    # set the email cookie to empty, make it expire 
-    session.pop('user', None)
-    return res
-
-
-""" sign up a new user """
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-
-    error = ''
-    # on form submission
-    if request.method =='POST':
-        # get form inputs 
-        first = request.form['first'].capitalize()
-        last = request.form['last'].capitalize()
-        email = request.form['username']
-        password = bytes(request.form['password'], 'utf-8')
-        classYr = request.form['class']
-        side = request.form['side']
-
-        team = request.args.get('t')
-        if not team:
-            team = request.form['team']
-
-        salt = bcrypt.gensalt()
-        pwhash = bcrypt.hashpw(password, salt)
-
-        # check if this email is already in database
-        checkIfNewEmail = db.getCredentials(email)
-        checkIfTeam = db.queryTeam(team)
-        if checkIfNewEmail:
-            error = 'Account already exists with this email'
-        elif not checkIfTeam:
-            error = f'No team exists with id: {team}'
-        else:
-            already_here = db.queryAthleteByName(first, last, team)
-            if already_here: 
-                already_cred = db.getCredentialsbyId(already_here["_id"])
-                if already_cred["pwHash"] == "pwhash":
-                    # temped cred, update the cred
-                    count = 0
-                    count += db.editCredentials(already_here["_id"], "email", email)
-                    count += db.editCredentials(already_here["_id"], "pwHash", pwhash)
-                    count += db.editCredentials(already_here["_id"], "salt", salt)
-                    if count != 3:
-                        error = 'failed to update user credentials'
-
-
-                    print(f'New user updated: {first} {last}, email: {email}, {side} side, {team} team')
-                    html = redirect('/home')
-                    return make_response(html)
-                else:
-                    error = 'Account already exists for this user. Try another email'
-
-            else: 
-
-                newId = random.randint(10, 100000)
-                already_id = db.getCredentialsbyId(newId)
-                while already_id:
-                    newId = random.randint(10, 100000)
-                    already_id = db.getCredentialsbyId(newId)
-
-                # add the login credentials to credentials DB
-                add = db.addCredentials(newId, email, pwhash, salt)
-                if not add:
-                    error = 'failed to add user'
-
-                # create athlete document from entered info
-                permissions = ['']
-                if side == 'cox':
-                    permissions.append('cox')
-
-                # if 'admin' in request.form.keys():
-                #     permissions.append('admin')
-
-                athlete = {
-                    "_id" : newId,
-                    "first" : first,
-                    "last" : last,
-                    "permissions" : permissions,
-                    "prs" : {
-                        "2000m" : '-1',
-                        "6000m" : '-1'
-                    },
-                    "workouts" : [],
-                    "side" : side,
-                    "class" : classYr,
-                    "active" : True,
-                    "teamId" : team
-                }
-                # add athlete document to athlete db
-                add = db.addAthlete(athlete)
-                if not add:
-                    error = "failed to add user"
-
-
-                print(f'New user registered: {first} {last}, email: {email}, {side} side, {team} team')
-
-                html = redirect('/home')
-                return make_response(html)
-    teamId = request.args.get('t')
-    if teamId:
-        html = render_template('signup.html', newTeam=True, error=error, teamId=teamId)
-    else:
-        html = render_template('signup.html', newTeam=False, error=error)
-    return make_response(html)
-
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    error = ''
-    if request.method == 'POST':
-        name = request.form['teamName'].capitalize()
-
-        teamId = db.addTeam(name)
-
-        print(f'New team added: {name}. id:{teamId}')
-
-        html = render_template('signup.html', newTeam=True, teamId=teamId)
-        return redirect(f'/signup?t={teamId}')
-
-    html = render_template('register.html', error=error)
-    return make_response(html)
 
 
 #-----------------------------------------------------------------------
@@ -467,15 +84,16 @@ def register():
 #-----------------------------------------------------------------------
 
 """ display all workouts """
-@flask_login.login_required
-@app.route('/workouts', methods=['GET'])
+@login_required
+@main_bp.route('/workouts', methods=['GET'])
 def workouts():
     # load the user
     if 'user' not in session:
         return redirect('/login')
     else:
         email = session['user']
-    user = user_loader(email)
+    user = current_user
+    # print(user)
     athlete = db.queryAthlete(user.id)
 
     workouts = db.getAllWorkouts(athlete['teamId'])
@@ -489,15 +107,16 @@ def workouts():
     html = render_template('workouts.html' ,workouts=workouts, delPerm=delPerm, athId=athlete['_id'])
     return make_response(html)
 
-@flask_login.login_required
-@app.route('/deleteWorkout', methods=['GET', 'POST'])
+@login_required
+@main_bp.route('/deleteWorkout', methods=['GET', 'POST'])
 def delete():
     # load the user
     if 'user' not in session:
         return redirect('/login')
     else:
         email = session['user']
-    user = user_loader(email)
+    user = current_user
+    # print(user)
     athlete = db.queryAthlete(user.id)
 
     workoutId = request.args.get('wid')
@@ -534,15 +153,16 @@ def delete():
 
 
 """ display a coach/coxswain portal for workout """
-@flask_login.login_required
-@app.route('/workout', methods=['GET'])
+@login_required
+@main_bp.route('/workout', methods=['GET'])
 def workout():
     # load the user 
     if 'user' not in session:
         return redirect('/login')
     else:
         email = session['user']
-    user = user_loader(email)
+    user = current_user
+    # print(user)
     athlete = db.queryAthlete(user.id)
 
     if 'admin' in athlete['permissions']:
@@ -645,15 +265,16 @@ def workout():
 
 
 """ display a coach/coxswain portal for workout """
-@flask_login.login_required
-@app.route('/myworkout', methods=['GET'])
+@login_required
+@main_bp.route('/myworkout', methods=['GET'])
 def myworkout():
     # load the user 
     if 'user' not in session:
         return redirect('/login')
     else:
         email = session['user']
-    user = user_loader(email)
+    user = current_user
+    # print(user)
     athlete = db.queryAthlete(user.id)
 
     workoutId = request.args.get('w')
@@ -767,14 +388,15 @@ def myworkout():
     # return make_response(htm
 
 
-@flask_login.login_required
-@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+@main_bp.route('/profile', methods=['GET', 'POST'])
 def profile():
     if 'user' not in session:
         return redirect('/login')
     else:
         email = session['user']
-    user = user_loader(email)
+    user = current_user
+    # print(user)
 
     # if loading another athlete, pass in the id as 'a'
     if request.args.get('a'):
@@ -793,14 +415,15 @@ def profile():
 
     return render_template('profile.html', athlete=athlete)
 
-@flask_login.login_required
-@app.route('/team', methods=['GET', 'POST'])
+@login_required
+@main_bp.route('/team', methods=['GET', 'POST'])
 def team():
     if 'user' not in session:
         return redirect('/login')
     else:
         email = session['user']
-    user = user_loader(email)
+    user = current_user
+    # print(user)
     athleteId = user.id
     athlete = db.queryAthlete(athleteId)
 
@@ -835,7 +458,7 @@ def team():
 #-----------------------------------------------------------------------
 """ database edit routes """
 #-----------------------------------------------------------------------
-@app.route('/editWorkout', methods=['POST'])
+@main_bp.route('/editWorkout', methods=['POST'])
 def editWorkout():
 
     field = request.form['field']
@@ -854,8 +477,8 @@ def editWorkout():
 """ Error handling """
 #-----------------------------------------------------------------------
 
-@app.errorhandler(404)
-@app.errorhandler(500)
+@main_bp.errorhandler(404)
+@main_bp.errorhandler(500)
 def handleError(ex):
 
     html = render_template('error.html')
@@ -867,7 +490,7 @@ def handleError(ex):
 """ other and testing """
 #-----------------------------------------------------------------------
 
-@app.route('/allWorkouts', methods=['GET'])
+@main_bp.route('/allWorkouts', methods=['GET'])
 def allWorkouts():
     wo = db.getAllWorkouts()
     html = ''
@@ -875,11 +498,12 @@ def allWorkouts():
         html += str(w) +"\n"
     return make_response(html)
 
-@app.route('/allAthletes', methods=['GET'])
+@main_bp.route('/allAthletes', methods=['GET'])
 def allAthletes():
     ath = db.getAllAthletes()
     html = ''
     for a in ath:
         html += str(a) + '\n'
     return make_response(html)
+
 

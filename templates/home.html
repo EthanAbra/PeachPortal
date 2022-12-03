@@ -9,8 +9,8 @@
         <title>PeachPortal- Home</title>
         <script src="https://code.jquery.com/jquery-3.6.0.slim.js"   integrity="sha256-HwWONEZrpuoh951cQD1ov2HUK5zA5DwJ1DNUXaM6FsY="   crossorigin="anonymous"></script>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-        <link rel ="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">    
-
+        <link rel ="stylesheet" href="{{ url_for('static', filename='css/homemain.css') }}">    
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
     </head>
     <body>
         <div class="container-fluid">
@@ -76,8 +76,8 @@
                                     Drop files here!
                                 </div>
                                 <button id="upload" class = "btn btn-primary btn-block">Upload files</button>
-                                <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.min.js"></script>
-                                <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+                                <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+                                <script src="{{ url_for('static', filename='js/homemain.js') }}"></script>
                             </div>
                         </div>
                         <div id="filelist"></div>
@@ -120,6 +120,6 @@
         
         
         <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
-        <script type="text/javascript" src="{{ url_for('static', filename='main.js') }}"></script>     
+
     </body>
 </html>

@@ -1,11 +1,11 @@
 import xlsxwriter
 import openpyxl
-import project.database as db
+from . import database as db
 import datetime
 from bson.binary import Binary
 import pickle
 import random
-from project.peach import PeachData
+from .peach import PeachData
 
 
 def xlsxRead(filename, teamId):
