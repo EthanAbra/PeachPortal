@@ -225,6 +225,8 @@ def request_loader(request):
         email = session['user']
 
     creds = db.getCredentials(email)
+    if not creds:
+        return
     # print(creds)
     user = User()
     user.id = creds['_id']
