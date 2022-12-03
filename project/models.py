@@ -75,7 +75,7 @@ class User(UserMixin):
 def user_loader(user_id):
     print(user_id)
     user = User.get_by_id(int(user_id))
-    print(vars(user))
+    # print(vars(user))
     if user is not None:
         return User(user._id, user.email, user.pwHash, user.salt)
     else:
