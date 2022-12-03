@@ -4,7 +4,6 @@ from project import create_app, socketio
 from flask import Flask, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import LoginManager, current_user
-from flask_cors import cross_origin
 import uuid
 from polyfile.magic import MagicMatcher
 from project import database as db
@@ -154,7 +153,7 @@ def valid_athletes(addedId, teamId, athleteList):
         db.deleteWorkout(addedId)
         return False
 
-app = create_app(debug=True)
+app = create_app()
 
 
 if __name__ == "main":

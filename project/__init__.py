@@ -4,7 +4,7 @@ monkey.patch_all()
 from flask import Flask, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import LoginManager, current_user
-from flask_cors import CORS
+
 import os
 import urllib3
 from . import database as db
