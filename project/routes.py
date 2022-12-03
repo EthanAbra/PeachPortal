@@ -15,25 +15,13 @@ import polyfile
 from . import peachhelp
 from flask import Flask, Blueprint, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
-from . import database as db
+from .database import getAllAthletes, getAllWorkouts, queryAthlete, queryWorkoutData, queryTeam
+from .database import queryWorkoutMeta, deleteWorkout, removeWorkoutFromAthlete, editAthlete
 import numpy as np
 from . import socketio
 from . import login_manager
-
-class ThreadWithReturnValue(Thread):
-    
-    def __init__(self, group=None, target=None, name=None,
-                 args=(), kwargs={}, Verbose=None):
-        Thread.__init__(self, group, target, name, args, kwargs)
-        self._return = None
-
-    def run(self):
-        if self._target is not None:
-            self._return = self._target(*self._args,
-                                                **self._kwargs)
-    def join(self, *args):
-        Thread.join(self, *args)
-        return self._return
+from .models import User
+from . import peach
 
 
 
@@ -62,20 +50,11 @@ def about():
 @login_required
 @main_bp.route('/home', methods=['GET'])
 def home():
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
+
     user = current_user
-    athlete = db.queryAthlete(user.id)
+    athlete = queryAthlete(user._id)
     html = render_template('home.html', perms=athlete['permissions'], first=athlete['first'], async_mode=socketio.async_mode)
     return make_response(html)
-
-@main_bp.route('/howToUpload', methods=['GET'])
-def howToUpload():
-    html = render_template('howToUpload.html')
-    return make_response(html)
-
 
 
 
@@ -87,16 +66,11 @@ def howToUpload():
 @login_required
 @main_bp.route('/workouts', methods=['GET'])
 def workouts():
-    # load the user
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
     user = current_user
-    # print(user)
-    athlete = db.queryAthlete(user.id)
+    print(user)
+    athlete = queryAthlete(user._id)
 
-    workouts = db.getAllWorkouts(athlete['teamId'])
+    workouts = getAllWorkouts(athlete['teamId'])
     
     if 'cox' in athlete['permissions'] or 'admin' in athlete['permissions']:
         delPerm = True
@@ -111,13 +85,10 @@ def workouts():
 @main_bp.route('/deleteWorkout', methods=['GET', 'POST'])
 def delete():
     # load the user
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
+
     user = current_user
     # print(user)
-    athlete = db.queryAthlete(user.id)
+    athlete = queryAthlete(user._id)
 
     workoutId = request.args.get('wid')
     athleteId = request.args.get('aid')
@@ -131,23 +102,23 @@ def delete():
             print(f"Delete accessed by unauthorized user {athlete['first']} {athlete['last']}")
             return render_template('error.html'), 500
         # verify requesting athlete 'owns' that workout
-        if athlete['teamId'] != db.queryWorkoutMeta(workoutId)['teamId']:
+        if athlete['teamId'] != queryWorkoutMeta(workoutId)['teamId']:
             print(f"Cross-team delete attempted by user {athlete['first']} {athlete['last']} on team:{athlete['teamId']}")
             return render_template('error.html'), 500
         
-        deleted = db.deleteWorkout(workoutId)
+        deleted = deleteWorkout(workoutId)
 
 
         if deleted:
             ctr = 0
-            for athlete in db.getAllAthletes(athlete['teamId']):
-                res = db.removeWorkoutFromAthlete(athlete['_id'], workoutId)
+            for athlete in getAllAthletes(athlete['teamId']):
+                res = removeWorkoutFromAthlete(athlete['_id'], workoutId)
                 print(f'unattributing {workoutId} from {athlete["_id"]}', end='\r')
                 ctr += 1
             print(f'workout {workoutId} deleted, removed from {ctr} profiles')
             return redirect('/workouts')
 
-    workout = db.queryWorkoutMeta(workoutId)
+    workout = queryWorkoutMeta(workoutId)
     html = render_template('confirmDelete.html', workout=workout, wid=workoutId, aid=athleteId)
     return make_response(html)
 
@@ -157,13 +128,11 @@ def delete():
 @main_bp.route('/workout', methods=['GET'])
 def workout():
     # load the user 
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
+
     user = current_user
+    print(user)
     # print(user)
-    athlete = db.queryAthlete(user.id)
+    athlete = queryAthlete(user._id)
 
     if 'admin' in athlete['permissions']:
         isAdmin = True
@@ -176,8 +145,9 @@ def workout():
     if 'cox' not in athlete['permissions']:
         return redirect(f'/myworkout?w={workoutId}')
 
-    practice = db.queryWorkoutData(workoutId)
-
+    print("sup practice")
+    practice = queryWorkoutData(workoutId)
+    print(practice)
     elite = practice['peach_data']
 
     npts = 100
@@ -269,18 +239,15 @@ def workout():
 @main_bp.route('/myworkout', methods=['GET'])
 def myworkout():
     # load the user 
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
+
     user = current_user
     # print(user)
-    athlete = db.queryAthlete(user.id)
+    athlete = queryAthlete(user._id)
 
     workoutId = request.args.get('w')
     
 
-    practice = db.queryWorkoutData(workoutId)
+    practice = queryWorkoutData(workoutId)
 
     elite = practice['peach_data']
 
@@ -391,41 +358,35 @@ def myworkout():
 @login_required
 @main_bp.route('/profile', methods=['GET', 'POST'])
 def profile():
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
+
     user = current_user
     # print(user)
 
     # if loading another athlete, pass in the id as 'a'
     if request.args.get('a'):
         athleteId = request.args.get('a')
-        athlete = db.queryAthlete(athleteId)
+        athlete = queryAthlete(athleteId)
 
         # security check: is the req'd athlete on the same team?
-        viewerTeam = db.queryAthlete(user.id)['teamId']
+        viewerTeam = queryAthlete(user._id)['teamId']
         if viewerTeam != athlete['teamId']:
             return make_response(render_template('error.html'))
 
     # if no 'a', load the self's profile
     else:
-        athleteId = user.id
-        athlete = db.queryAthlete(athleteId)
+        athleteId = user._id
+        athlete = queryAthlete(athleteId)
 
     return render_template('profile.html', athlete=athlete)
 
 @login_required
 @main_bp.route('/team', methods=['GET', 'POST'])
 def team():
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
+
     user = current_user
     # print(user)
-    athleteId = user.id
-    athlete = db.queryAthlete(athleteId)
+    athleteId = user._id
+    athlete = queryAthlete(athleteId)
 
     if 'admin' not in athlete['permissions']:
         return render_template('error.html'), 500
@@ -433,8 +394,8 @@ def team():
 
 
     teamId = athlete['teamId']
-    teamName = db.queryTeam(teamId)['name']
-    teammates = db.getAllAthletes(teamId)
+    teamName = queryTeam(teamId)['name']
+    teammates = getAllAthletes(teamId)
 
     sumModified = 0
     if request.method == 'POST':
@@ -442,12 +403,12 @@ def team():
             field, athleteId = key.split('_')
             newVal = request.form[key]
             if field == 'active':
-                sumModified += db.editAthlete(int(athleteId), field, True)
+                sumModified += editAthlete(int(athleteId), field, True)
             else:
-                sumModified += db.editAthlete(int(athleteId), field, newVal)
+                sumModified += editAthlete(int(athleteId), field, newVal)
 
             if 'active' not in request.form:
-                sumModified += db.editAthlete(int(athleteId), 'active', False)
+                sumModified += editAthlete(int(athleteId), 'active', False)
 
     print(f'Team "{teamName}" edited by {athlete["first"]} {athlete["last"]}')
 
@@ -465,7 +426,7 @@ def editWorkout():
     newVal = request.form['newVal']
     workoutID = int(request.form['workoutId'])
 
-    res = db.editWorkout(workoutID, field, newVal)
+    res = editWorkout(workoutID, field, newVal)
 
     print(res, f' workout {workoutID} edited fied {field} with {newVal}')
 
@@ -484,26 +445,5 @@ def handleError(ex):
     html = render_template('error.html')
     response = make_response(html)
     return response
-
-
-#-----------------------------------------------------------------------
-""" other and testing """
-#-----------------------------------------------------------------------
-
-@main_bp.route('/allWorkouts', methods=['GET'])
-def allWorkouts():
-    wo = db.getAllWorkouts()
-    html = ''
-    for w in wo:
-        html += str(w) +"\n"
-    return make_response(html)
-
-@main_bp.route('/allAthletes', methods=['GET'])
-def allAthletes():
-    ath = db.getAllAthletes()
-    html = ''
-    for a in ath:
-        html += str(a) + '\n'
-    return make_response(html)
 
 

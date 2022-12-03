@@ -109,9 +109,11 @@ function onProcessedPeach(file, addedId, teamId, athleteList){
             '<br>Please add full names for each crew member directly under the \'CrewInfo\', then \'Name\' header </div>';
             return
         }
-        for (athlete in createdAthleteList)
-        document.getElementById('messagelist').innerHTML += '<div class="alert alert-success" role="alert"> created account for' + athlete + '</div>';
+        for (athlete in createdAthleteList){
+            document.getElementById('messagelist').innerHTML += '<div class="alert alert-success" role="alert"> created account for' + athlete + '</div>';
+        }
         // TODO: Would you like to view this workout? with href
+        document.getElementById('messagelist').innerHTML += '<div class="alert alert-primary" role="alert"> View workout: <a href ="../workout?w=' + addedId + '">here</div>';
         return
     });
 }

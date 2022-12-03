@@ -1,12 +1,12 @@
 from project import create_app, socketio
 
-
+from project.database import queryAthlete, addWorkout, deleteWorkout, queryAthleteByName, addWorkoutToAthlete, addCredentials, addAthlete
 from flask import Flask, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import LoginManager, current_user
 import uuid
 from polyfile.magic import MagicMatcher
-from project import database as db
+# from project import database as db
 import random
 import bcrypt
 from project import peachhelp
@@ -56,15 +56,11 @@ def write_chunk(filename, offset, data):
 
 @socketio.on('write-complete')
 def write_complete(filename):
-    print("revced wr comp")
-    if 'user' not in session:
-        return redirect('/login')
-    else:
-        email = session['user']
+
     user = current_user
     # print(user)
-    athleteId = user.id
-    athlete = db.queryAthlete(athleteId)
+    athleteId = user._id
+    athlete = queryAthlete(athleteId)
     teamId = athlete['teamId']
 
     def mimewrap(filename):
@@ -85,7 +81,7 @@ def write_complete(filename):
         os.remove(filename)
         return False
 
-    addedId = db.addWorkout(workout, teamId)
+    addedId = addWorkout(workout, teamId)
     os.remove(filename)
     if not addedId:
         return False
@@ -105,18 +101,17 @@ def valid_athletes(addedId, teamId, athleteList):
             else:
                 first, last = athlete.split() # TODO: this is dangerous!!!!!!
             # print()
-            athlete_query = db.queryAthleteByName(first, last, teamId) # TODO: introduce fuzzy matching
+            athlete_query = queryAthleteByName(first, last, teamId) # TODO: introduce fuzzy matching
             if athlete_query:
                 athleteId = athlete_query['_id']
                 print(f'attributed to {athlete}', end='\r')
-
-                edited = db.addWorkoutToAthlete(athleteId, addedId)
+                edited = addWorkoutToAthlete(athleteId, addedId)
             else: # we need to create a new athlete for this individual
 
                 error = ''
                 newId = random.randint(10, 100000)
                 # add the login credentials to credentials DB
-                add = db.addCredentials(newId, athlete, "pwhash", "salt")
+                add = addCredentials(newId, athlete, "pwhash", "salt")
                 if not add:
                     error += 'failed to add user cred'
 
@@ -139,21 +134,22 @@ def valid_athletes(addedId, teamId, athleteList):
                     "teamId" : teamId
                 }
                 # add athlete document to athlete db
-                add = db.addAthlete(athlete)
+                add = addAthlete(athlete)
                 if not add:
                     error += "failed to add athlete"
                 
                 if len(error):
-                    return redirect(f'/home?e=1&em={error}')
+                    False
 
                 print(f'attributed to {athlete}', end='\r')
-                # edited = db.addWorkoutToAthlete(add, addedId)
         return True
     else:
-        db.deleteWorkout(addedId)
+        deleteWorkout(addedId)
         return False
 
-app = create_app()
+
+app = create_app(debug=True)
+
 
 
 if __name__ == "main":

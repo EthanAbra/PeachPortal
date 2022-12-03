@@ -1,11 +1,17 @@
-from . import database as db
+from .database import getCredentials, queryAthleteByName, getCredentialsbyId, queryTeam
+from .database import editCredentials, addAthlete, addTeam, addCredentialsJson
+
 from flask import Flask, Blueprint, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import current_user, login_required, logout_user, login_user, UserMixin
 from . import login_manager
 import bcrypt
 import random
+import uuid
+import certifi
+from .models import User
 
+ca = certifi.where()
 
 # Blueprint Configuration
 auth_bp = Blueprint(
@@ -19,52 +25,36 @@ auth_bp = Blueprint(
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     error=''
-
     # if the user has already logged in (and has not logged out)
     # sign them in
+    '''
     if 'user' in session:
         email = session['user'] 
         user = user_loader(email)
-        athlete = db.queryAthlete(user.id)
+        athlete = queryAthlete(user.id)
         print(f'{athlete["first"]} {athlete["last"]} logged in, old session')
         return redirect('/home')
-
-
+    '''
     # on form submission (POST request)
     if request.method == 'POST':
-
         # get email and password from form
         email = request.form['username']
         password = bytes(request.form['password'],'utf-8')
         # get the credentials 
-        creds = db.getCredentials(email)
+        find_user = getCredentials(email)
 
-        session.clear()
-
-        # getCredentials returns none if email not found in DB
-        if not creds:
-            error = 'Invalid Credentials. Please try again.'
-        # else check password hash
+        if User.login_valid(email, password):
+            loguser = User(find_user["_id"], find_user["email"], find_user["pwHash"], find_user["salt"])
+            login_user(loguser)
+            flash('You have been logged in!', 'success')
+            res = render_template('home.html')
+            print(f'{email} logged in, new session')
+            return make_response(res)
         else:
-
-            email = creds['email']
-            pwHash = creds['pwHash']
-            salt = creds['salt']
-            # check the entered password against that in database
-            verified = bcrypt.checkpw(password, pwHash)
-            if verified:
-                user = user_loader(email)
-                login_user(user)
-                session.permanent = False
-                res = redirect('/home')
-                session['user'] = email
-                print(f'{email} logged in, new session')
-                return res
-            else:
-                error = 'Invalid Credentials. Please try again.'
+            flash('Login Unsuccessful. Please check email and password', 'danger')
+    return render_template('login.html')
 
 
-    return render_template('login.html', error=error)
 
 """ log out the user """
 @login_required
@@ -73,7 +63,7 @@ def logout():
     logout_user()
     res = redirect('/')
     # set the email cookie to empty, make it expire 
-    session.pop('user', None)
+    # session.pop('user', None)
     return res
 
 
@@ -91,7 +81,6 @@ def signup():
         password = bytes(request.form['password'], 'utf-8')
         classYr = request.form['class']
         side = request.form['side']
-
         team = request.args.get('t')
         if not team:
             team = request.form['team']
@@ -100,26 +89,25 @@ def signup():
         pwhash = bcrypt.hashpw(password, salt)
 
         # check if this email is already in database
-        checkIfNewEmail = db.getCredentials(email)
-        checkIfTeam = db.queryTeam(team)
+        checkIfNewEmail = User.get_by_email(email)
+        checkIfTeam = queryTeam(team)
         if checkIfNewEmail:
             error = 'Account already exists with this email'
         elif not checkIfTeam:
             error = f'No team exists with id: {team}'
         else:
-            already_here = db.queryAthleteByName(first, last, team)
+            already_here = queryAthleteByName(first, last, team)
             if already_here: 
-                already_cred = db.getCredentialsbyId(already_here["_id"])
+                already_cred = getCredentialsbyId(already_here["_id"])
                 if already_cred["pwHash"] == "pwhash":
                     # temped cred, update the cred
                     count = 0
-                    count += db.editCredentials(already_here["_id"], "email", email)
-                    count += db.editCredentials(already_here["_id"], "pwHash", pwhash)
-                    count += db.editCredentials(already_here["_id"], "salt", salt)
+                    # TODO: MAKE ATOMIC
+                    count += editCredentials(already_here["_id"], "email", email)
+                    count += editCredentials(already_here["_id"], "pwHash", pwhash)
+                    count += editCredentials(already_here["_id"], "salt", salt)
                     if count != 3:
                         error = 'failed to update user credentials'
-
-
                     print(f'New user updated: {first} {last}, email: {email}, {side} side, {team} team')
                     html = redirect('/home')
                     return make_response(html)
@@ -129,13 +117,14 @@ def signup():
             else: 
 
                 newId = random.randint(10, 100000)
-                already_id = db.getCredentialsbyId(newId)
+                already_id = getCredentialsbyId(newId)
                 while already_id:
                     newId = random.randint(10, 100000)
-                    already_id = db.getCredentialsbyId(newId)
+                    already_id = getCredentialsbyId(newId)
 
                 # add the login credentials to credentials DB
-                add = db.addCredentials(newId, email, pwhash, salt)
+                add = User.register(email, pwhash, salt, newId)
+
                 if not add:
                     error = 'failed to add user'
 
@@ -163,7 +152,7 @@ def signup():
                     "teamId" : team
                 }
                 # add athlete document to athlete db
-                add = db.addAthlete(athlete)
+                add = addAthlete(athlete)
                 if not add:
                     error = "failed to add user"
 
@@ -186,7 +175,7 @@ def register():
     if request.method == 'POST':
         name = request.form['teamName'].capitalize()
 
-        teamId = db.addTeam(name)
+        teamId = addTeam(name)
 
         print(f'New team added: {name}. id:{teamId}')
 
@@ -200,34 +189,5 @@ def register():
 """ flask_login methods """
 #-----------------------------------------------------------------------
 
-class User(UserMixin):
-    pass
-
-""" loads a user from the database, using their email as the key """
-@login_manager.user_loader
-def user_loader(email):
-    creds = db.getCredentials(email)
-    # print(creds)
-    if not creds:
-        return
-
-    user = User()
-    user.id = creds['_id']
-
-    return user
 
 """ loads the user using the 'email' cookie set during login"""
-@login_manager.request_loader
-def request_loader(request):
-    if 'user' not in session:
-        return
-    else:
-        email = session['user']
-
-    creds = db.getCredentials(email)
-    if not creds:
-        return
-    # print(creds)
-    user = User()
-    user.id = creds['_id']
-    return user

@@ -1,5 +1,4 @@
-from pymongo import MongoClient
-import pymongo
+from flask_pymongo import PyMongo
 import datetime
 from pprint import pprint
 import os 
@@ -8,22 +7,15 @@ import pickle
 import random
 import certifi
 import collections
-
-
-
-
+from flask import current_app, g
+from werkzeug.local import LocalProxy
+import pymongo
 ca = certifi.where()
-
-if 'database_url' not in os.environ:
-    from dotenv import load_dotenv
-    load_dotenv()
-    CONNECTION_STRING = os.environ.get('database_url')
-else:
-    CONNECTION_STRING = os.environ['database_url']
-
+from . import peach
+from .peach import PeachData
 # print(os.environ)
 # print(CONNECTION_STRING)
-    
+
 DBNAME = 'peach'
 ATHLETE_COLLECTION = 'athletes'
 WORKOUTDATA_COLLECTION = 'workoutsdata'
@@ -31,29 +23,41 @@ WORKOUTMETA_COLLECTION = 'workoutsmeta'
 CREDENTIALS_COLLECTION = 'credentials'
 TEAMS_COLLECTION = 'teams'
 
+
+def get_db():
+    """
+    Configuration method to return db instance
+    """
+    db = getattr(g, "_database", None)
+
+    if db is None:
+
+        db = g._database = PyMongo(current_app).db
+       
+    return db
+
+db = LocalProxy(get_db)
+
+
 # ------------------------------------------------------------------- #
 # General Database methods
-
-def getDatabase():
-    client = pymongo.MongoClient(CONNECTION_STRING, tlsCAFile=ca)
-    return client[DBNAME]
-
+'''
 def getCollection(collection):
+    print("getc")
+    print(db)
     try:
-        dbname = getDatabase()
-        # print(dbname)
-        return dbname[collection]
+        return db[collection]
     except Exception as e:
         print(str(e))
         return None
+'''
 # ------------------------------------------------------------------- #
 # general athlete collection methods 
 
 def addAthlete(athleteDict):
     print(f'addAthlete called with {athleteDict}')
     try:
-        collection_name = getCollection(ATHLETE_COLLECTION)
-        result = collection_name.insert_one(athleteDict)
+        result = db.athletes.insert_one(athleteDict)
         return result.inserted_id
     except Exception as e:
         print(str(e))
@@ -62,8 +66,7 @@ def addAthlete(athleteDict):
 def editAthlete(athleteId, field, newVal):
     print(f'editAthlete called with {athleteId}, {field}, {newVal}')
     try:
-        collection_name = getCollection(ATHLETE_COLLECTION)
-        result = collection_name.update_one({'_id' : athleteId}, {'$set' : {field : newVal}})
+        result = db.athletes.update_one({'_id' : athleteId}, {'$set' : {field : newVal}})
         return result.modified_count
     except Exception as e:
         print(str(e))
@@ -73,8 +76,7 @@ def queryAthlete(athleteId):
     print(f'queryAthlete called with {athleteId}')
     try:
         athleteId = int(athleteId)
-        collection_name = getCollection(ATHLETE_COLLECTION)
-        return collection_name.find_one({'_id' : athleteId})
+        return db.athletes.find_one({'_id' : athleteId})
     except Exception as e:
         print(str(e))
         return None
@@ -83,27 +85,24 @@ def queryAthleteByName(first, last, team):
     print(f'queryAthleteByName called with {first} {last} {team}')
     print()
     try:
-        collection_name = getCollection(ATHLETE_COLLECTION)
-        return collection_name.find_one({'first' : first, 'last' : last, 'teamId': team})
+        return db.athletes.find_one({'first' : first, 'last' : last, 'teamId': team})
     except Exception as e:
         print(str(e))
         return None
 
 def getAllAthletes(teamId, sort_by='name', active_only=False):
     try:
-        collection_name = getCollection(ATHLETE_COLLECTION)
         if active_only:
-            return collection_name.find({'active': True, 'teamId' : teamId}, sort=[(sort_by, pymongo.ASCENDING)])
+            return db.athletes.find({'active': True, 'teamId' : teamId}, sort=[(sort_by, pymongo.ASCENDING)])
         else:
-            return collection_name.find({'teamId' : teamId}, sort=[(sort_by, pymongo.ASCENDING)])
+            return db.athletes.find({'teamId' : teamId}, sort=[(sort_by, pymongo.ASCENDING)])
     except Exception as e:
         print(str(e))
         return None
 
 def addWorkoutToAthlete(athleteId, workoutId):
     try:
-        collection_name = getCollection(ATHLETE_COLLECTION)
-        result = collection_name.update_one({'_id' : int(athleteId)}, {'$push' : {"workouts" : workoutId}})
+        result = db.athletes.update_one({'_id' : int(athleteId)}, {'$push' : {"workouts" : workoutId}})
         return result
     except Exception as e:
         print(str(e))
@@ -111,8 +110,7 @@ def addWorkoutToAthlete(athleteId, workoutId):
 
 def removeWorkoutFromAthlete(athleteId, workoutId):
     try:
-        collection_name = getCollection(ATHLETE_COLLECTION)
-        result = collection_name.update_one({'_id' : athleteId}, {'$unset' : {f'workouts.{workoutId}' : ''}})
+        result = db.athletes.update_one({'_id' : athleteId}, {'$unset' : {f'workouts.{workoutId}' : ''}})
         return result
     except Exception as e:
         print(str(e))
@@ -125,14 +123,12 @@ def addWorkout(workoutDict, teamId):
     print(f'addworkout called with {title}, {teamId}')
     dataDict = collections.defaultdict()
     try:
-        collection_name = getCollection(WORKOUTMETA_COLLECTION)
         workoutDict['teamId'] = teamId
         dataDict['peach_data'] = workoutDict.pop('peach_data')
         dataDict['teamId'] = teamId
-        result = collection_name.insert_one(workoutDict)
+        result = db.workoutsmeta.insert_one(workoutDict)
         dataDict['_id'] = result.inserted_id
-        collection_name = getCollection(WORKOUTDATA_COLLECTION)
-        result = collection_name.insert_one(dataDict)
+        result = db.workoutsdata.insert_one(dataDict)
         return result.inserted_id
     except Exception as e:
         print(str(e))
@@ -141,30 +137,27 @@ def addWorkout(workoutDict, teamId):
 def editWorkout(workoutId, field, newVal):
     print(f'editWorkout called with {workoutId}, {field}, {newVal}')
     try:
-        collection_name = getCollection(WORKOUTMETA_COLLECTION)
-        result = collection_name.update_one({'_id' : workoutId}, {'$set' : {field : newVal}})
+        result = db.workoutsmeta.update_one({'_id' : workoutId}, {'$set' : {field : newVal}})
         return result.modified_count
     except Exception as e:
         print(str(e))
         return None
 
 def queryWorkoutMeta(workoutId):
-    print(f'queryWorkout called with {workoutId}')
+    print(f'queryWorkoutMeta called with {workoutId}')
     try:
         workoutId = int(workoutId)
-        collection_name = getCollection(WORKOUTMETA_COLLECTION)
-        res = collection_name.find_one({'_id' : workoutId})
+        res = db.workoutsmeta.find_one({'_id' : workoutId})
         return res
     except Exception as e:
         print(str(e))
         return None
 
 def queryWorkoutData(workoutId):
-    print(f'queryWorkout called with {workoutId}')
+    print(f'queryWorkoutData called with {workoutId}')
     try:
         workoutId = int(workoutId)
-        collection_name = getCollection(WORKOUTDATA_COLLECTION)
-        res = collection_name.find_one({'_id' : workoutId})
+        res = db.workoutsdata.find_one({'_id' : workoutId})
         temp = pickle.loads(res['peach_data'])
         res['peach_data'] = temp
         return res
@@ -175,10 +168,9 @@ def queryWorkoutData(workoutId):
 def deleteWorkout(workoutId):
     print(f'deleteWorkout called with {workoutId}')
     try:
-        collection_name = getCollection(WORKOUTMETA_COLLECTION)
-        result = collection_name.delete_one({'_id' : workoutId})
-        collection_name = getCollection(WORKOUTDATA_COLLECTION)
-        result = collection_name.delete_one({'_id' : workoutId})
+        # TODO: ATOMIC???
+        result = db.workoutsmeta.delete_one({'_id' : workoutId})
+        result = db.workoutsdata.delete_one({'_id' : workoutId})
         return result.deleted_count
     except Exception as e:
         print(str(e))
@@ -187,8 +179,7 @@ def deleteWorkout(workoutId):
 def getAllWorkouts(teamId, sort_by='date'):
     print(f'getAllWorkouts called with {teamId}')
     try:
-        collection_name = getCollection(WORKOUTMETA_COLLECTION)
-        return collection_name.find({'teamId' : teamId}, sort=[(sort_by, pymongo.DESCENDING)])
+        return db.workoutsmeta.find({'teamId' : teamId}, sort=[(sort_by, pymongo.DESCENDING)])
     except Exception as e:
         print(str(e))
         return None
@@ -199,8 +190,7 @@ def queryTeam(teamId):
     print(f'queryTeam called with {teamId}')
     try:
         teamId = int(teamId)
-        collection_name = getCollection(TEAMS_COLLECTION)
-        res = collection_name.find_one({'_id' : teamId})
+        res = db.teams.find_one({'_id' : teamId})
         return res
     except Exception as e:
         print(str(e))
@@ -214,8 +204,7 @@ def addTeam(name):
         while queryTeam(teamId):
             teamId = random.randint(10, 999999) 
 
-        collection_name = getCollection(TEAMS_COLLECTION)
-        res = collection_name.insert_one({'_id' : teamId, 'name' : name})
+        res = db.teams.insert_one({'_id' : teamId, 'name' : name})
         return res.inserted_id
     except Exception as e:
         print(str(e))
@@ -226,13 +215,10 @@ def addTeam(name):
 # workout to each athlete's 'workouts' array
 def attributeWorkout(workoutId):
     try:
-        athletes_collection = getCollection(ATHLETE_COLLECTION)
-        workout_collection = getCollection(WORKOUTMETA_COLLECTION)
-
-        workout = workout_collection.find_one({'_id' : workoutId})
+        workout = db.workoutsmeta.find_one({'_id' : workoutId})
         # athletes who completeted the workout
         participating = [int(k) for k in workout['scores'].keys()]
-        result = athletes_collection.update_many({'_id' : {'$in' : participating}}, {'$addToSet' : {'workouts' : workoutId}})
+        result = db.athletes.update_many({'_id' : {'$in' : participating}}, {'$addToSet' : {'workouts' : workoutId}})
         return result.modified_count
 
     except Exception as e:
@@ -240,61 +226,48 @@ def attributeWorkout(workoutId):
         return None
 
 
-# ------------------------------------------------------------------- #
-# gets athleteId's scores on workoutId
-# return a list [(distance, time)] 
-def getScoreByAthlete(athleteId, workoutId):
-    try:
-        workout_collection = getCollection(WORKOUTMETA_COLLECTION)
-        result = workout_collection.find_one({'_id' : workoutId })
-        if not result:
-            print('No workout with id ' + str(workoutId))
-            return None
-        try:
-            return zip(result['pieces'] , result['scores'][str(athleteId)])
-        except KeyError as _:
-            print('Athlete with id ' + str(athleteId) + ' did not complete this workout')
-            return None
-
-    except Exception as e:
-        print(str(e))
-        return None
 
 # ------------------------------------------------------------------- #
 # add an athlete to the credentials database
 def addCredentials(athleteId, email, pwHash, salt):
     print(f'addCredentials called with {athleteId}, {email}')
     try:
-        collection_name = getCollection(CREDENTIALS_COLLECTION)
         newCreds = {
             "_id" : athleteId,
             "email" : email,
             "pwHash" : pwHash,
             "salt" : salt
             }
-        result = collection_name.insert_one(newCreds)
+        result = db.credentials.insert_one(newCreds)
         return result.inserted_id
     except Exception as e:
         print(str(e))
         return None
 
+# add an athlete to the credentials database
+def addCredentialsJson(json):
+    db.credentials.insert(json)
+
 
 def getCredentials(email):
-    print(f'getCredentials called with {email}')
+    print(f'getCredentialsbyemail called with {email}')
+    # print(db)
     try:
-        collection_name = getCollection(CREDENTIALS_COLLECTION)
-        result = collection_name.find_one({'email' : email})
+        result = db.credentials.find_one({'email' : email})
+        print(result)
         return result
+    
     except Exception as e:
         print(str(e))
         return None
 
 
 def getCredentialsbyId(id):
-    print(f'getCredentials called with {id}')
+    print(f'getCredentialsbyId called with {id}')
+    # print(type(id))
     try:
-        collection_name = getCollection(CREDENTIALS_COLLECTION)
-        result = collection_name.find_one({'_id' : id})
+        result = db.credentials.find_one({'_id' : id})
+        print(result)
         return result
     except Exception as e:
         print(str(e))
@@ -304,8 +277,7 @@ def getCredentialsbyId(id):
 def editCredentials(athleteId, field, value):
     print(f'editCredentials called with {athleteId}')
     try:
-        collection_name = getCollection(CREDENTIALS_COLLECTION)
-        result = collection_name.update_one({'_id' : athleteId}, {'$set' : {field : value}})
+        result = db.credentials.update_one( {'_id' : athleteId}, {'$set' : {field : value}})
         return result.modified_count
     except Exception as e:
         print(str(e))

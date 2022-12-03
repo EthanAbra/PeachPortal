@@ -1,11 +1,12 @@
 import xlsxwriter
 import openpyxl
-from . import database as db
+from .database import getAllWorkouts
 import datetime
 from bson.binary import Binary
 import pickle
 import random
 from .peach import PeachData
+from .database import getAllWorkouts
 
 
 def xlsxRead(filename, teamId):
@@ -16,7 +17,7 @@ def xlsxRead(filename, teamId):
 
 
     try:
-        nextId = int(db.getAllWorkouts(teamId, sort_by='_id')[0]['_id']) + 1 # increment _id
+        nextId = int(getAllWorkouts(teamId, sort_by='_id')[0]['_id']) + 1 # increment _id
     except IndexError:
         nextId = random.randint(1, 1000)
 
