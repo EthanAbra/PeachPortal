@@ -1,4 +1,6 @@
 Flask==2.0.0
+flask-dropzone==1.6.0
+bokeh==3.0.2
 flask-login==0.6.2
 gunicorn==20.0.4
 psycopg2-binary
@@ -9,9 +11,17 @@ datetime
 pytz
 requests
 urllib3==1.26.4
-pymongo
+pymongo[ocsp]
 dnspython
 bcrypt==3.2.0
 xlsxwriter
 openpyxl
 pandas
+seaborn==0.12.1
+Werkzeug==2.2.2
+polyfile
+gevent==22.10.2
+flask-socketio==5.3.2
+gevent-websocket==0.10.1
+python-dotenv==0.21.0
+Flask-PyMongo
