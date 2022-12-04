@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 
 """
@@ -18,9 +19,8 @@ from itertools import groupby, chain
 
 
 class PeachData():
-    def __init__(self, fname):
+    def __init__(self, df):
         try:
-            df = pd.read_excel(fname, header=None)
             # read times for start of each stroke from "Aperiodic" section of file
 
             athletes_start = np.flatnonzero((df[1]=='Name') & (df[2]=='Abbr'))[0]
