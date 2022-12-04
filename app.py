@@ -19,12 +19,6 @@ import os
 
 
 
-    
-@socketio.on('my-event')
-def my_event(msg):
-    print("connected!!!!!!!!" + str(msg))
-    socketio.emit('connect')
-
 
 # print('capp called')
 @socketio.on('start-transfer')

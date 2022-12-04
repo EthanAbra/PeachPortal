@@ -28,21 +28,17 @@ class User(UserMixin):
     def get_by_email(cls, email):
         data = getCredentials(email)
         if data is not None:
-            print("data is not node")
             return cls(**data)
 
     @classmethod
     def get_by_id(cls, _id):
         data = getCredentialsbyId(_id)
         if data is not None:
-            print("data is not none")
             return cls(**data)
 
     @staticmethod
     def login_valid(email, password):
-        print("tryloginvalid")
         verify_user = User.get_by_email(email)
-        print(password)
         if verify_user is not None:
             return bcrypt.checkpw(password, verify_user.pwHash)
         return False
@@ -73,9 +69,7 @@ class User(UserMixin):
 """ loads a user from the database, using their email as the key """
 @login_manager.user_loader
 def user_loader(user_id):
-    print(user_id)
     user = User.get_by_id(int(user_id))
-    # print(vars(user))
     if user is not None:
         return User(user._id, user.email, user.pwHash, user.salt)
     else:

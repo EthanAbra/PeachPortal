@@ -16,13 +16,6 @@ from .peach import PeachData
 # print(os.environ)
 # print(CONNECTION_STRING)
 
-DBNAME = 'peach'
-ATHLETE_COLLECTION = 'athletes'
-WORKOUTDATA_COLLECTION = 'workoutsdata'
-WORKOUTMETA_COLLECTION = 'workoutsmeta'
-CREDENTIALS_COLLECTION = 'credentials'
-TEAMS_COLLECTION = 'teams'
-
 
 def get_db():
     """
@@ -39,18 +32,6 @@ def get_db():
 db = LocalProxy(get_db)
 
 
-# ------------------------------------------------------------------- #
-# General Database methods
-'''
-def getCollection(collection):
-    print("getc")
-    print(db)
-    try:
-        return db[collection]
-    except Exception as e:
-        print(str(e))
-        return None
-'''
 # ------------------------------------------------------------------- #
 # general athlete collection methods 
 
@@ -83,7 +64,6 @@ def queryAthlete(athleteId):
 
 def queryAthleteByName(first, last, team):
     print(f'queryAthleteByName called with {first} {last} {team}')
-    print()
     try:
         return db.athletes.find_one({'first' : first, 'last' : last, 'teamId': team})
     except Exception as e:
@@ -254,7 +234,6 @@ def getCredentials(email):
     # print(db)
     try:
         result = db.credentials.find_one({'email' : email})
-        print(result)
         return result
     
     except Exception as e:
@@ -267,7 +246,6 @@ def getCredentialsbyId(id):
     # print(type(id))
     try:
         result = db.credentials.find_one({'_id' : id})
-        print(result)
         return result
     except Exception as e:
         print(str(e))

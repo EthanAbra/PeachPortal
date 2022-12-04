@@ -27,14 +27,7 @@ def login():
     error=''
     # if the user has already logged in (and has not logged out)
     # sign them in
-    '''
-    if 'user' in session:
-        email = session['user'] 
-        user = user_loader(email)
-        athlete = queryAthlete(user.id)
-        print(f'{athlete["first"]} {athlete["last"]} logged in, old session')
-        return redirect('/home')
-    '''
+
     # on form submission (POST request)
     if request.method == 'POST':
         # get email and password from form
@@ -47,9 +40,10 @@ def login():
             loguser = User(find_user["_id"], find_user["email"], find_user["pwHash"], find_user["salt"])
             login_user(loguser)
             flash('You have been logged in!', 'success')
-            res = render_template('home.html')
+            # res = render_template('home.html')
             print(f'{email} logged in, new session')
-            return make_response(res)
+            # print(res)
+            return redirect('/home')
         else:
             flash('Login Unsuccessful. Please check email and password', 'danger')
     return render_template('login.html')
