@@ -90,7 +90,7 @@ function onReadComplete(file) {
         socketio.emit('write-complete', file.server_filename, function(ack, addedId, teamId, athleteList){
             if(!ack){
                 document.getElementById('messagelist').innerHTML +=
-                '<div class="alert alert-danger fade in" role="alert"> malformed peach data in file ' + String(file.file.name) + ' </div>';
+                '<div class="alert alert-danger" role="alert"> malformed peach data in file ' + String(file.file.name) + ' </div>';
                 return
             }
             document.getElementById('messagelist').innerHTML += 
@@ -105,7 +105,7 @@ function onProcessedPeach(file, addedId, teamId, athleteList){
     socketio.emit('valid-athletes', addedId, teamId, athleteList, function(ack, createdAthleteList){
         if(!ack){
             document.getElementById('messagelist').innerHTML += 
-            '<div class="alert alert-danger fade in" role="alert"> no athletes in file ' + String(file.file.name) + 
+            '<div class="alert alert-danger" role="alert"> no athletes in file ' + String(file.file.name) + 
             '<br>Please add full names for each crew member directly under the \'CrewInfo\', then \'Name\' header </div>';
             return
         }

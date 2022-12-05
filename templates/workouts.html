@@ -28,7 +28,7 @@
 
             <div class="card" style="width: 100%;">
                 <div class="card-body">
-                    <h3>Workouts:</h3>
+                    <h3>Workouts for: {{athlete_name}}</h3>
                     <ul class="list-group overflow-auto" style="height: 100%;">
                         {% for workout in workouts %}
                             <li  class="list-group-item"><a href="/workout?w={{workout['_id']}}"><h5>{{workout['title']}}</h5></a>{{workout['date']}} {% if delPerm %}<span ><a style="color: red;" href="/deleteWorkout?wid={{workout['_id']}}&aid={{athId}}">(Delete)</a></span>{% endif %}</li>

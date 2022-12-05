@@ -1,6 +1,7 @@
 from project import create_app, socketio
 
-from project.database import queryAthlete, addWorkout, deleteWorkout, queryAthleteByName, addWorkoutToAthlete, addCredentials, addAthlete
+from project.database import queryAthlete, addWorkout, deleteWorkout, queryAthleteByName, addWorkoutToAthlete
+from project.database import getCredentialsbyId, addCredentials, addAthlete
 from flask import Flask, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import LoginManager, current_user
@@ -60,9 +61,8 @@ def write_complete(filename):
     def mimewrap(filename):
         for match in MagicMatcher.DEFAULT_INSTANCE.match(filename):
             print(f"Match string: {match!s}")
-            if str(match).startswith("Microsoft Excel"):
+            if str(match).startswith("Microsoft Excel 2007"):
                 return True
-
 
     
     if not mimewrap(filename):
@@ -104,6 +104,12 @@ def valid_athletes(addedId, teamId, athleteList):
 
                 error = ''
                 newId = random.randint(10, 100000)
+                already_id = getCredentialsbyId(newId)
+                while already_id:
+                    newId = random.randint(10, 100000)
+                    already_id = getCredentialsbyId(newId)
+                
+                # TODO: collision resistance
                 # add the login credentials to credentials DB
                 add = addCredentials(newId, athlete, "pwhash", "salt")
                 if not add:
