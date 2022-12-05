@@ -86,8 +86,14 @@ function onReadComplete(file) {
     console.log(file.file.name)
     if (file.done){
         document.getElementById('messagelist').innerHTML +=
-        '<div class="alert alert-warning" role="alert"> file ' + String(file.file.name) + ' received. server processing ... </div>';
+        '<div class="alert alert-warning" role="alert"> file ' + String(file.file.name) + ' received. server processing <div class="loader" id = "' + String(file.file.name).replace(/\W/g,'_') + '" ><div class="duo duo1"><div class="dot dot-a"></div><div class="dot dot-b"></div></div><div class="duo duo2"><div class="dot dot-a"></div><div class="dot dot-b"></div> </div></div></div>';
         socketio.emit('write-complete', file.server_filename, function(ack, addedId, teamId, athleteList){
+            var x = document.getElementById(String(file.file.name).replace(/\W/g,'_'));
+            if (x.style.display === "none") {
+                x.style.display = "block";
+            } else {
+                x.style.display = "none";
+            }
             if(!ack){
                 document.getElementById('messagelist').innerHTML +=
                 '<div class="alert alert-danger" role="alert"> malformed peach data in file ' + String(file.file.name) + ' </div>';
