@@ -7,7 +7,7 @@ from bson.binary import Binary
 import pickle
 import random
 from .peach import PeachData
-from .database import getAllWorkouts
+from .database import getAllWorkouts, queryWorkoutMeta
 import pandas as pd
 import json
 import xmltodict
@@ -67,11 +67,17 @@ def xlsxRead(filename, teamId):
         print(e)
         return False, "Powerline File is formatted incorrectly"
 
+    # TODO: remove file if false?? might already handle that
 
     try:
         nextId = int(getAllWorkouts(teamId, sort_by='_id')[0]['_id']) + 1 
     except IndexError:
-        nextId = int(getAllWorkouts(teamId, sort_by='_id')[-1]['_id']) - 1
+        nextId = random.randint(1, 1000)
+    already_id = queryWorkoutMeta(nextId)
+    while already_id:
+        nextId = random.randint(10, 100000)
+        already_id = queryWorkoutMeta(nextId)
+     
 
 
 

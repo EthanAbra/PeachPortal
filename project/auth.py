@@ -93,7 +93,7 @@ def signup():
             allAthletes = getAllAthletes(team)
             already_here = None
             for existingAthlete in allAthletes:
-                if fuzz.token_sort_ratio(existingAthlete['namestring'], athlete) >= 85:
+                if fuzz.token_sort_ratio(existingAthlete['namestring'], first + " " + last) >= 85:
                     already_here = existingAthlete
                     break
             if already_here: 
@@ -137,7 +137,7 @@ def signup():
                     "_id" : newId,
                     "first" : first,
                     "last" : last,
-                    "namestring": first+last,
+                    "namestring": first+ " " + last,
                     "permissions" : permissions,
                     "prs" : {
                         "2000m" : '-1',

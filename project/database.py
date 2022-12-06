@@ -261,9 +261,9 @@ def editCredentials(athleteId, field, value):
         return None
 
 def editCredentialsBatch(athleteId, field1, value1, field2, value2, field3, value3):
-    print(f'editCredentials called with {athleteId}')
+    print(f'editCredentialsBatch called with {athleteId}')
     try:
-        result = db.credentials.update_one({'_id' : athleteId}, {'$set' : {field1 : value1}}, {'$set' : {field2 : value2}}, {'$set' : {field3 : value3}})
+        result = db.credentials.update_one({'_id' : athleteId}, {'$set' : {field1 : value1, field2 : value2, field3 : value3}})
         return result.modified_count
     except Exception as e:
         print(str(e))

@@ -72,13 +72,13 @@ def write_complete(filename):
         return False
     # file = open(filename, 'r')
     success, workout = xlsxRead(filename, teamId)
+    os.remove(filename)
+
 
     if not success:
-        os.remove(filename)
         return False
 
     addedId = addWorkout(workout, teamId)
-    os.remove(filename)
     if not addedId:
         return False
     else:
