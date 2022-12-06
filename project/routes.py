@@ -22,7 +22,9 @@ from . import socketio
 from . import login_manager
 from .models import User
 from . import peach
+import collections
 
+unpickledWorkouts = collections.defaultdict()
 
 
 # Blueprint Configuration
@@ -213,9 +215,12 @@ def overallView(internalId= None):
 
     piece_num = request.args.get('piece')
     
-    practice = queryWorkoutData(workoutId)
-
-    meta = queryWorkoutMeta(workoutId)
+    practice, meta = unpickledWorkouts.get(workoutId, (None, None))
+    
+    if not practice:
+        practice = queryWorkoutData(workoutId)
+        meta = queryWorkoutMeta(workoutId)
+        unpickledWorkouts[workoutId] = practice, meta
 
     if not piece_num:
         elite = practice['peach_data'][0]
@@ -310,17 +315,18 @@ def overallView(internalId= None):
 @main_bp.route('/workoutseat', methods = ['POST'])
 def workoutforseat():
     user=  current_user
-    # print(user)
-
-    athlete = queryAthlete(user._id)
-
 
     workoutId = request.args.get('w')
     seat_num = int(request.args.get('s'))
     piece_num = int(request.args.get('piece'))
     
-    practice = queryWorkoutData(workoutId)
-    meta = queryWorkoutMeta(workoutId)
+    practice, meta = unpickledWorkouts.get(workoutId, (None, None))
+    
+    if not practice:
+        practice = queryWorkoutData(workoutId)
+        meta = queryWorkoutMeta(workoutId)
+        unpickledWorkouts[workoutId] = practice, meta
+
 
     elite = practice['peach_data'][piece_num]
 
@@ -344,9 +350,12 @@ def myworkout(internalId = None):
     else:
         workoutId = request.args.get('w')
     
-    practice = queryWorkoutData(workoutId)
-
-    meta = queryWorkoutMeta(workoutId)
+    practice, meta = unpickledWorkouts.get(workoutId, (None, None))
+    
+    if not practice:
+        practice = queryWorkoutData(workoutId)
+        meta = queryWorkoutMeta(workoutId)
+        unpickledWorkouts[workoutId] = practice, meta
 
     piece_num = request.args.get('piece')
 
@@ -421,7 +430,7 @@ def individual_workout(elite, seat_num, meta, internal = False):
         peachhelp.plot_vector(stroke_svd['mean'], color = "#30d93e", suppress_power=True, label2='Stroke Mean Recovery', ax = bx)
 
 
-    mathDict = peachhelp.plot_single(boat_svd['mean'], ax, color = "#FFA500", label= "Actual Stroke")
+    mathDict = peachhelp.plot_single(svdDict['mean'], ax, color = "#FFA500", label= "Actual Stroke")
 
 
     split = elite.get_rating_chunks()
