@@ -70,8 +70,8 @@ def home():
 #-----------------------------------------------------------------------
 
 """ display all workouts """
-@login_required
 @main_bp.route('/workouts', methods=['GET'])
+@login_required
 def workouts():
     user = current_user
     print(user)
@@ -97,8 +97,8 @@ def workouts():
     html = render_template('workouts.html' ,workouts=renderlist, delPerm=delPerm, athId=athlete['_id'], athlete_name = athlete['first'] + " " + athlete['last'])
     return make_response(html)
 
-@login_required
 @main_bp.route('/deleteWorkout', methods=['POST'])
+@login_required
 def delete():
     # load the user
 
@@ -144,8 +144,8 @@ def delete():
 
 
 """ display a coach/coxswain portal for workout """
-@login_required
 @main_bp.route('/workout', methods=['GET'])
+@login_required
 def workout():
     # load the user 
     user = current_user
@@ -180,7 +180,13 @@ def workout():
         startingview = overallView(workoutId)
     else:
         seatnum, startingview = myworkout(workoutId)
+
+
+    athlete_map = ""
+    for idx, athleteName in enumerate(meta['athlete_list']):
+        athlete_map += '<span style="color:' +  colors[idx] + '">Seat ' +str(idx+1) + ": "+ athleteName + "</span>, "
         
+    athlete_map = athlete_map[:-2]
 
     html = render_template(
         'workout.html',
@@ -193,14 +199,15 @@ def workout():
         athId = athlete['_id'],
         colors = colors,
         piece_list = piece_list,
-        seatnum = seatnum
+        seatnum = seatnum,
+        athlete_map = athlete_map
     )
 
     return html
 
 
-@login_required
 @main_bp.route('/workoutoverall', methods = ['POST'])
+@login_required
 def overallView(internalId= None):
 
     npts = 100
@@ -254,7 +261,7 @@ def overallView(internalId= None):
             dat3 = elite.resample_stroke(s, [0, peep+1,peep+1+8], npts)
             theta3 += [dat3[:,1]]
             thetadot3 += [dat3[:,2]]
-        label = Label(x=np.min(theta3), y=-23, x_units='data', y_units = 'data', 
+        label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
         text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
         (average_aper_data[1+peep],average_aper_data[17+peep], average_aper_data[33+peep], average_aper_data[121+peep]),
             border_line_color='black', border_line_alpha=.5,
@@ -271,7 +278,7 @@ def overallView(internalId= None):
 
     
 
-    label = Label(x=elite.numstrokes//2-10, y=550, x_units='data', y_units = 'data', 
+    label = Label(x=elite.numstrokes//2-10, y=np.max(boat_pow), x_units='data', y_units = 'data', 
         text='Average Boat:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
         (np.mean(average_aper_data[1:9]),np.mean(average_aper_data[17:25]), np.mean(average_aper_data[33:41]), np.mean(average_aper_data[121:129])),
             border_line_color='black', border_line_alpha=.5,
@@ -311,8 +318,8 @@ def overallView(internalId= None):
     return response + '<div id = "overall">' + div+script + '<div>'
 
 
-@login_required
 @main_bp.route('/workoutseat', methods = ['POST'])
+@login_required
 def workoutforseat():
     user=  current_user
 
@@ -336,8 +343,8 @@ def workoutforseat():
 
 
 """ display an individual's portal for workout """
-@login_required
 @main_bp.route('/myworkout', methods=['GET'])
+@login_required
 def myworkout(internalId = None):
     # load the user 
 
@@ -408,7 +415,7 @@ def individual_workout(elite, seat_num, meta, internal = False):
     ax[0].xaxis.axis_label='Gate Angle °'
     ax[0].yaxis.axis_label='Gate Force (N)'
     average_aper_data = elite.get_average_aper_data()
-    label = Label(x=np.min(theta3), y=-23, x_units='data', y_units = 'data', 
+    label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
     text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
     (average_aper_data[1+seat_num],average_aper_data[17+seat_num], average_aper_data[33+seat_num], average_aper_data[121+seat_num]),
         border_line_color='black', border_line_alpha=.5,
@@ -475,8 +482,8 @@ def individual_workout(elite, seat_num, meta, internal = False):
     return response + '<div id = "individual">' + div + script + "</div>"
 
 
-@login_required
 @main_bp.route('/profile', methods=['GET', 'POST'])
+@login_required
 def profile():
 
     user = current_user
@@ -502,8 +509,8 @@ def profile():
 
     return render_template('profile.html', athlete=athlete)
 
-@login_required
 @main_bp.route('/team', methods=['GET', 'POST'])
+@login_required
 def team():
 
     user = current_user
@@ -545,6 +552,7 @@ def team():
 """ database edit routes """
 #-----------------------------------------------------------------------
 @main_bp.route('/editWorkout', methods=['POST'])
+@login_required
 def editWorkoutRoute():
     field = request.form['field']
     newVal = request.form['newVal']

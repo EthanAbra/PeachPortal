@@ -83,9 +83,12 @@
                             <h5>{{workout['date']}}</h5>
                         </div>
                     </div>
-
-<!-- plots!! -->
-
+                    {% if isAdmin %}
+<!-- plots!! -->    <div class="row" style="margin-bottom: 1rem;">
+                            <h5>{{athlete_map|safe}}</h5>
+                        </div>
+                    </div>
+                    {%endif%}
                     <div class="overflow-x: scroll;" >
                         <div id="raw" >
                             {{ plot_div|indent(4)|safe }}

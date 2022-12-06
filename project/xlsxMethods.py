@@ -40,11 +40,8 @@ def xlsxRead(filename, teamId):
 
     print("xlsxread called")
 
-    print()
-    print()
     idDict = get_sheet_ids(filename)
 
-    print(idDict)
 
     peach_frames = []
     piece_list = []
@@ -60,14 +57,16 @@ def xlsxRead(filename, teamId):
         except Exception as e:
             return False, "Powerline File is formatted incorrectly"
 
-    print("peach data time")
+
     try:
         data = [PeachData(df) for df in peach_frames]
     except Exception as e:
         print(e)
         return False, "Powerline File is formatted incorrectly"
 
-    # TODO: remove file if false?? might already handle that
+    # TODO: double upload dont want conflict
+
+    peach_bytes = pickle.dumps(data)
 
     try:
         nextId = int(getAllWorkouts(teamId, sort_by='_id')[0]['_id']) + 1 
@@ -80,11 +79,6 @@ def xlsxRead(filename, teamId):
      
 
 
-
-    print(piece_list)
-    
-
-    peach_bytes = pickle.dumps(data)
 
     #TODO: NOTES & ATHLETE LIST MULTI-DIMENSIONAL
 

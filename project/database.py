@@ -225,7 +225,7 @@ def addCredentials(athleteId, email, pwHash, salt):
 
 # add an athlete to the credentials database
 def addCredentialsJson(json):
-    db.credentials.insert(json)
+    db.credentials.insert_one(json)
 
 
 def getCredentials(email):
