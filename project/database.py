@@ -148,7 +148,6 @@ def queryWorkoutData(workoutId):
 def deleteWorkout(workoutId):
     print(f'deleteWorkout called with {workoutId}')
     try:
-        # TODO: ATOMIC???
         result = db.workoutsmeta.delete_one({'_id' : workoutId})
         result = db.workoutsdata.delete_one({'_id' : workoutId})
         return result.deleted_count
@@ -256,6 +255,15 @@ def editCredentials(athleteId, field, value):
     print(f'editCredentials called with {athleteId}')
     try:
         result = db.credentials.update_one( {'_id' : athleteId}, {'$set' : {field : value}})
+        return result.modified_count
+    except Exception as e:
+        print(str(e))
+        return None
+
+def editCredentialsBatch(athleteId, field1, value1, field2, value2, field3, value3):
+    print(f'editCredentials called with {athleteId}')
+    try:
+        result = db.credentials.update_one({'_id' : athleteId}, {'$set' : {field1 : value1}}, {'$set' : {field2 : value2}}, {'$set' : {field3 : value3}})
         return result.modified_count
     except Exception as e:
         print(str(e))

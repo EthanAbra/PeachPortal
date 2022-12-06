@@ -27,3 +27,5 @@ python-dotenv==0.21.0
 Flask-PyMongo
 xmltodict
 xlsx2csv==0.8.0
+fuzzywuzzy==0.18.0
+python-Levenshtein

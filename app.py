@@ -1,7 +1,7 @@
 from project import create_app, socketio
 
 from project.database import queryAthlete, addWorkout, deleteWorkout, queryAthleteByName, addWorkoutToAthlete
-from project.database import getCredentialsbyId, addCredentials, addAthlete
+from project.database import getCredentialsbyId, addCredentials, addAthlete, getAllAthletes
 from flask import Flask, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import LoginManager, current_user
@@ -13,6 +13,8 @@ import bcrypt
 from project import peachhelp
 from project.xlsxMethods import xlsxRead
 import os
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
 
 #-----------------------------------------------------------------------
 """ File upload method"""
@@ -93,14 +95,22 @@ def valid_athletes(addedId, teamId, athleteList):
             if len(athlete.split())==1:
                 first, last = athlete[0], athlete[0]
             else:
-                first, last = athlete.split() # TODO: this is dangerous!!!!!!
+                first, last = athlete.split() 
             # print()
-            athlete_query = queryAthleteByName(first, last, teamId) # TODO: introduce fuzzy matching
+
+            allAthletes = getAllAthletes(teamId)
+
+            athlete_query = None
+            for existingAthlete in allAthletes:
+                if fuzz.token_sort_ratio(existingAthlete['namestring'], athlete) >= 85:
+                    athlete_query = existingAthlete
+                    break
+
             if athlete_query:
                 athleteId = athlete_query['_id']
                 print(f'attributed to {athlete}', end='\r')
                 edited = addWorkoutToAthlete(athleteId, addedId)
-            else: # we need to create a new athlete for this individual
+            else: # we need to create a new athlete account for this individual
 
                 error = ''
                 newId = random.randint(10, 100000)
@@ -109,7 +119,7 @@ def valid_athletes(addedId, teamId, athleteList):
                     newId = random.randint(10, 100000)
                     already_id = getCredentialsbyId(newId)
      
-                # add the login credentials to credentials DB
+                # add temporary login credentials to credentials DB
                 add = addCredentials(newId, athlete, "pwhash", "salt")
                 if not add:
                     error += 'failed to add user cred'
@@ -122,10 +132,11 @@ def valid_athletes(addedId, teamId, athleteList):
                 if ath_idx % 2:
                     side = 'port'
 
-                athlete = {
+                athleteJson = {
                     "_id" : newId,
                     "first" : first,
                     "last" : last,
+                    "namestring": athlete,
                     "permissions" : permissions,
                     "workouts" : [addedId],
                     "side" : side,
@@ -133,7 +144,7 @@ def valid_athletes(addedId, teamId, athleteList):
                     "teamId" : teamId
                 }
                 # add athlete document to athlete db
-                add = addAthlete(athlete)
+                add = addAthlete(athleteJson)
                 if not add:
                     error += "failed to add athlete"
                 

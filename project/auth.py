@@ -1,5 +1,5 @@
-from .database import getCredentials, queryAthleteByName, getCredentialsbyId, queryTeam
-from .database import editCredentials, addAthlete, addTeam, addCredentialsJson
+from .database import getCredentials, queryAthleteByName, getCredentialsbyId, queryTeam, editCredentialsBatch
+from .database import editCredentials, addAthlete, addTeam, addCredentialsJson, getAllAthletes
 
 from flask import Flask, Blueprint, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
@@ -10,6 +10,9 @@ import random
 import uuid
 import certifi
 from .models import User
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
+
 
 ca = certifi.where()
 
@@ -24,9 +27,6 @@ auth_bp = Blueprint(
 """ renders the login page and processes user logins"""
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    error=''
-    # if the user has already logged in (and has not logged out)
-    # sign them in
 
     # on form submission (POST request)
     if request.method == 'POST':
@@ -90,16 +90,19 @@ def signup():
         elif not checkIfTeam:
             error = f'No team exists with id: {team}'
         else:
-            already_here = queryAthleteByName(first, last, team)
+            allAthletes = getAllAthletes(team)
+            already_here = None
+            for existingAthlete in allAthletes:
+                if fuzz.token_sort_ratio(existingAthlete['namestring'], athlete) >= 85:
+                    already_here = existingAthlete
+                    break
             if already_here: 
                 already_cred = getCredentialsbyId(already_here["_id"])
                 if already_cred["pwHash"] == "pwhash":
                     # temped cred, update the cred
                     count = 0
-                    # TODO: MAKE ATOMIC
-                    count += editCredentials(already_here["_id"], "email", email)
-                    count += editCredentials(already_here["_id"], "pwHash", pwhash)
-                    count += editCredentials(already_here["_id"], "salt", salt)
+
+                    count += editCredentialsBatch(already_here["_id"], "email", email, "pwHash", pwhash, "salt", salt)
                     if count != 3:
                         error = 'failed to update user credentials'
                     print(f'New user updated: {first} {last}, email: {email}, {side} side, {team} team')
@@ -134,6 +137,7 @@ def signup():
                     "_id" : newId,
                     "first" : first,
                     "last" : last,
+                    "namestring": first+last,
                     "permissions" : permissions,
                     "prs" : {
                         "2000m" : '-1',
