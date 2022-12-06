@@ -108,8 +108,7 @@ def valid_athletes(addedId, teamId, athleteList):
                 while already_id:
                     newId = random.randint(10, 100000)
                     already_id = getCredentialsbyId(newId)
-                
-                # TODO: collision resistance
+     
                 # add the login credentials to credentials DB
                 add = addCredentials(newId, athlete, "pwhash", "salt")
                 if not add:

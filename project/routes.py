@@ -51,7 +51,6 @@ def about():
 @login_required
 def home():
 
-    # TODO: make frontpage more idiot-proof
     user = current_user
     print(user)
     print(vars(user))
@@ -256,7 +255,7 @@ def overallView(internalId= None):
             border_line_color='black', border_line_alpha=.5,
             background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
 
-        ax[peep].multi_line(xs = theta3, ys = thetadot3, color=colors[peep],line_alpha = -0.001111*elite.numstrokes + 0.2722, line_join = 'bevel', line_width = 2, legend_label="%d seat" %(peep+1))
+        ax[peep].multi_line(xs = theta3, ys = thetadot3, color=colors[peep],line_alpha = max(-0.001111*elite.numstrokes + 0.2722, .02), line_join = 'bevel', line_width = 2, legend_label="%d seat" %(peep+1))
         ax[peep].xaxis.axis_label='Gate Angle °'
         ax[peep].yaxis.axis_label='Gate Force (N)'
         ax[peep].add_layout(label)
@@ -320,8 +319,6 @@ def workoutforseat():
     seat_num = int(request.args.get('s'))
     piece_num = int(request.args.get('piece'))
     
-    # TODO: idk if we need this but make sure it works
-        
     practice = queryWorkoutData(workoutId)
     meta = queryWorkoutMeta(workoutId)
 
@@ -398,7 +395,7 @@ def individual_workout(elite, seat_num, meta, internal = False):
         time_resamp += [dat3[:,0]]
         theta3 += [dat3[:,1]]
         thetadot3 += [dat3[:,2]]
-    ax[0].multi_line(xs = theta3, ys = thetadot3, line_alpha =  -0.001111*elite.numstrokes + 0.2722, color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
+    ax[0].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*elite.numstrokes + 0.2722, .02), color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
     ax[0].xaxis.axis_label='Gate Angle °'
     ax[0].yaxis.axis_label='Gate Force (N)'
     average_aper_data = elite.get_average_aper_data()
@@ -409,9 +406,7 @@ def individual_workout(elite, seat_num, meta, internal = False):
         background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
     ax[0].add_layout(label)
 
-    # TODO: With average stroke. not individual stroke
-    # START WITH JUST ONE STROKE BEFORE WE DO AVERAGING
-    chosen_stroke = 100
+
 
     svdDict = peachhelp.svd_module(elite, 100, seat_num)
     
