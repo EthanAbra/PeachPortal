@@ -97,7 +97,7 @@ def workouts():
     html = render_template('workouts.html' ,workouts=renderlist, delPerm=delPerm, athId=athlete['_id'], athlete_name = athlete['first'] + " " + athlete['last'])
     return make_response(html)
 
-@main_bp.route('/deleteWorkout', methods=['POST'])
+@main_bp.route('/deleteWorkout', methods=['GET', 'POST'])
 @login_required
 def delete():
     # load the user
