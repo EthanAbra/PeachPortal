@@ -52,7 +52,8 @@ def write_chunk(filename, offset, data):
 
 
 @socketio.on('write-complete')
-def write_complete(filename):
+def write_complete(data):
+    print(data)
 
     user = current_user
     # print(user)
@@ -60,30 +61,29 @@ def write_complete(filename):
     athlete = queryAthlete(athleteId)
     teamId = athlete['teamId']
 
-    def mimewrap(filename):
-        for match in MagicMatcher.DEFAULT_INSTANCE.match(filename):
+    def mimewrap(serverfilename):
+        for match in MagicMatcher.DEFAULT_INSTANCE.match(serverfilename):
             print(f"Match string: {match!s}")
             if str(match).startswith("Microsoft Excel 2007"):
                 return True
 
     
-    if not mimewrap(filename):
-        os.remove(filename)
-        return False
-    # file = open(filename, 'r')
-    success, workout = xlsxRead(filename, teamId)
-    os.remove(filename)
+    if not mimewrap(data['serverfilename']):
+        os.remove(data['serverfilename'])
+        return False, data['serverfilename']
 
+    success, workout = xlsxRead(data['serverfilename'], teamId)
+    os.remove(data['serverfilename'])
 
     if not success:
-        return False
+        return False, data['serverfilename']
 
     addedId = addWorkout(workout, teamId)
     if not addedId:
-        return False
+        return False, data['serverfilename']
     else:
         print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
-    return True, addedId, teamId, workout['athlete_list']
+    socketio.emit('peach processed',{'ack':True, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename'], 'addedId': addedId, 'teamId' :teamId, 'athleteList':workout['athlete_list']})
 
 
     
