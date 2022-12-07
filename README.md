@@ -20,7 +20,7 @@ blahblahblah
 
 ### Logging in, signing up, and registering
 
-Navigate to peachportal.azurewebsites.net Existing users, select "Log in" and enter your login credentials. For first time users whose team is registered with irgo, select "Sign up" and enter your information to create a profile, including the Team Id created when registering your team. For first time users whose team is **not** registered, select "Register team" and enter your team name, which will then direct you to create an account. This first account will be made a team admim, giving them special priviliges to edit team and workout data.
+Navigate to peachportal.azurewebsites.net Existing users, select "Log in" and enter your login credentials. For first time users whose team is registered with PeachPortal, select "Sign up" and enter your information to create a profile, including the Team Id created when registering your team. For first time users whose team is **not** registered, select "Register team" and enter your team name, which will then direct you to create an account. This first account will be made a team admim, giving them special priviliges to edit team and workout data.
 
 ### /home
 

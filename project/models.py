@@ -44,10 +44,11 @@ class User(UserMixin):
         return False
 
     @classmethod
-    def register(cls_id, email, pwHash, salt):
+    def register(cls, _id, email, pwHash, salt):
+        print("hit register")
         user = cls.get_by_email(email)
         if user is None:
-            new_user = cls(email, pwHash, salt, _id)
+            new_user = cls(_id, email, pwHash, salt)
             new_user.save_to_mongo()
             session['email'] = email
             return True
@@ -66,11 +67,12 @@ class User(UserMixin):
         addCredentialsJson(self.json())
 
 
-""" loads a user from the database, using their email as the key """
+""" loads a user from the database, using their id as the key """
 @login_manager.user_loader
 def user_loader(user_id):
     user = User.get_by_id(int(user_id))
     if user is not None:
+        print("user is not none")
         return User(user._id, user.email, user.pwHash, user.salt)
     else:
         return None

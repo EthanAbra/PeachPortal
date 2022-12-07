@@ -28,7 +28,7 @@
 
             <div class="card" style="width: 100%;">
                 <div class="card-body">
-                    <h3>Workouts:</h3>
+                    <h3>Workouts for: {{athlete_name}}</h3>
                     <ul class="list-group overflow-auto" style="height: 100%;">
                         {% for workout in workouts %}
                             <li  class="list-group-item"><a href="/workout?w={{workout['_id']}}"><h5>{{workout['title']}}</h5></a>{{workout['date']}} {% if delPerm %}<span ><a style="color: red;" href="/deleteWorkout?wid={{workout['_id']}}&aid={{athId}}">(Delete)</a></span>{% endif %}</li>
@@ -40,16 +40,6 @@
 
         </div>
 
-        <script>
-            if (Math.floor(Math.random()*6) == 1){
-                var now = new Date()
-                if (now.getHours() > 18){
-                    if (now.getHours() < 20){
-                        alert("Warning: The server has detected you looking at erg scores during dinner. Please look up from your phone and engage with those around you.");
-                    }
-                }
-            }
-        </script>
 
 
         <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>

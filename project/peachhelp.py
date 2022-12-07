@@ -58,13 +58,13 @@ def workModule():
 def helperMath(theta3, thetadot3, time_resamp):
 
     retDict = collections.defaultdict()
-    global index_min_angle;
-    global index_max_force;
-    global index_max_angle;
-    global resampled_drive_angles;
+    global index_min_angle
+    global index_max_force
+    global index_max_angle
+    global resampled_drive_angles
     global drive_y_old
-    global drive_x_old;
-    global drive_time_old;
+    global drive_x_old
+    global drive_time_old
 
     index_min_angle = min(range(len(theta3)), key=theta3.__getitem__)
     index_max_force = max(range(len(thetadot3)), key=thetadot3.__getitem__)
@@ -196,13 +196,14 @@ def svd_module(elite, npts, chosen_seat=None, chosen_range = None):
 
 
 
-def plot_vector(vec, ax, label=None, label2 = None, color = "#084594", transparency = None, suppress_power = False):
+def plot_vector(vec, ax, label=None, label2 = None, color = "#084594", transparency = None, suppress_power = False, legend_title = ""):
     # split a vector into (theta, thetadot) and plot
     npts = len(vec) // 2
     t = np.linspace(0, 1, npts+1)[:-1]
     theta = vec[::3]
     thetadot = vec[1::3]
     thetaq = vec[2::3]
+    
     
     if not suppress_power:
         if label:
@@ -211,6 +212,9 @@ def plot_vector(vec, ax, label=None, label2 = None, color = "#084594", transpare
             ax[0].legend.location = "center"
             ax[0].legend.label_text_font_size = '8pt'
             ax[0].legend.spacing = 2
+            ax[0].legend.title = legend_title
+            ax[0].xaxis.axis_label='Gate Angle °'
+            ax[0].yaxis.axis_label='Gate Force (N)'
         else:
             ax[0].line(x = theta, y = thetadot, line_color = color, line_join = 'bevel', line_width = 2)
             ax[0].xaxis.axis_label='Gate Angle °'
@@ -223,9 +227,45 @@ def plot_vector(vec, ax, label=None, label2 = None, color = "#084594", transpare
         ax[1].legend.location = "center"
         ax[1].legend.label_text_font_size = '8pt'
         ax[1].legend.spacing = 2
+        ax[1].legend.title = legend_title
+
     else:
         ax[1].line(x = theta, y = thetaq, line_color = color, line_join = 'bevel', line_width = 2)
 
 
     ax[1].xaxis.axis_label='Gate Angle °'
     ax[1].yaxis.axis_label='Gate Angle Veclocity'
+
+
+
+
+def plot_single(vec, ax, label=None, color = "#084594"):
+    # split a vector into (theta, thetadot) and plot
+    npts = len(vec) // 2
+    t = np.linspace(0, 1, npts+1)[:-1]
+    theta = vec[::3]
+    thetadot = vec[1::3]
+    thetaq = vec[2::3]
+
+    mathDict = helperMath(theta, thetadot, t)
+
+    ideal_stroke = ideal_stroke_module(theta, thetadot)
+
+    ax[1].multi_line(xs = ideal_stroke['idealx'], ys = ideal_stroke['idealy'], line_join = 'bevel', line_width = 2, legend_label="Ideal Stroke")
+
+
+    
+    if label:
+        ax[1].line(x = theta, y = thetadot, legend_label = label, line_color = color, line_join = 'bevel', line_width = 2)
+        ax[1].legend.background_fill_alpha = 0.2
+        ax[1].legend.location = "center"
+        ax[1].legend.label_text_font_size = '8pt'
+        ax[1].legend.spacing = 2
+        ax[1].xaxis.axis_label='Gate Angle °'
+        ax[1].yaxis.axis_label='Gate Force (N)'
+    else:
+        ax[1].line(x = theta, y = thetadot, line_color = color, line_join = 'bevel', line_width = 2)
+        ax[1].xaxis.axis_label='Gate Angle °'
+        ax[1].yaxis.axis_label='Gate Force (N)'
+
+    return mathDict

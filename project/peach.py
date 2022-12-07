@@ -22,7 +22,6 @@ class PeachData():
     def __init__(self, df):
         try:
             # read times for start of each stroke from "Aperiodic" section of file
-
             athletes_start = np.flatnonzero((df[1]=='Name') & (df[2]=='Abbr'))[0]
             self.athlete_map = df.iloc[athletes_start+1: athletes_start+9, 1].dropna().to_numpy(copy=True)
 
@@ -47,6 +46,7 @@ class PeachData():
             self.t0 = int(self.data[0,0])  # initial time
             self.dt = 20  # timestep, in milliseconds
         except Exception as e:
+            print(e)
             return e
 
 

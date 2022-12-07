@@ -1,6 +1,7 @@
 from project import create_app, socketio
 
-from project.database import queryAthlete, addWorkout, deleteWorkout, queryAthleteByName, addWorkoutToAthlete, addCredentials, addAthlete
+from project.database import queryAthlete, addWorkout, deleteWorkout, queryAthleteByName, addWorkoutToAthlete
+from project.database import getCredentialsbyId, addCredentials, addAthlete, getAllAthletes
 from flask import Flask, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import LoginManager, current_user
@@ -12,6 +13,8 @@ import bcrypt
 from project import peachhelp
 from project.xlsxMethods import xlsxRead
 import os
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
 
 #-----------------------------------------------------------------------
 """ File upload method"""
@@ -49,7 +52,8 @@ def write_chunk(filename, offset, data):
 
 
 @socketio.on('write-complete')
-def write_complete(filename):
+def write_complete(data):
+    print(data)
 
     user = current_user
     # print(user)
@@ -57,31 +61,29 @@ def write_complete(filename):
     athlete = queryAthlete(athleteId)
     teamId = athlete['teamId']
 
-    def mimewrap(filename):
-        for match in MagicMatcher.DEFAULT_INSTANCE.match(filename):
+    def mimewrap(serverfilename):
+        for match in MagicMatcher.DEFAULT_INSTANCE.match(serverfilename):
             print(f"Match string: {match!s}")
-            if str(match).startswith("Microsoft Excel"):
+            if str(match).startswith("Microsoft Excel 2007"):
                 return True
 
-
     
-    if not mimewrap(filename):
-        os.remove(filename)
-        return False
-    # file = open(filename, 'r')
-    success, workout = xlsxRead(filename, teamId)
+    if not mimewrap(data['serverfilename']):
+        os.remove(data['serverfilename'])
+        return False, data['serverfilename']
+
+    success, workout = xlsxRead(data['serverfilename'], teamId)
+    os.remove(data['serverfilename'])
 
     if not success:
-        os.remove(filename)
-        return False
+        return False, data['serverfilename']
 
     addedId = addWorkout(workout, teamId)
-    os.remove(filename)
     if not addedId:
-        return False
+        return False, data['serverfilename']
     else:
         print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
-    return True, addedId, teamId, workout['athlete_list']
+    socketio.emit('peach processed',{'ack':True, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename'], 'addedId': addedId, 'teamId' :teamId, 'athleteList':workout['athlete_list']})
 
 
     
@@ -93,18 +95,31 @@ def valid_athletes(addedId, teamId, athleteList):
             if len(athlete.split())==1:
                 first, last = athlete[0], athlete[0]
             else:
-                first, last = athlete.split() # TODO: this is dangerous!!!!!!
+                first, last = athlete.split() 
             # print()
-            athlete_query = queryAthleteByName(first, last, teamId) # TODO: introduce fuzzy matching
+
+            allAthletes = getAllAthletes(teamId)
+
+            athlete_query = None
+            for existingAthlete in allAthletes:
+                if fuzz.token_sort_ratio(existingAthlete['namestring'], athlete) >= 85:
+                    athlete_query = existingAthlete
+                    break
+
             if athlete_query:
                 athleteId = athlete_query['_id']
                 print(f'attributed to {athlete}', end='\r')
                 edited = addWorkoutToAthlete(athleteId, addedId)
-            else: # we need to create a new athlete for this individual
+            else: # we need to create a new athlete account for this individual
 
                 error = ''
                 newId = random.randint(10, 100000)
-                # add the login credentials to credentials DB
+                already_id = getCredentialsbyId(newId)
+                while already_id:
+                    newId = random.randint(10, 100000)
+                    already_id = getCredentialsbyId(newId)
+     
+                # add temporary login credentials to credentials DB
                 add = addCredentials(newId, athlete, "pwhash", "salt")
                 if not add:
                     error += 'failed to add user cred'
@@ -117,10 +132,11 @@ def valid_athletes(addedId, teamId, athleteList):
                 if ath_idx % 2:
                     side = 'port'
 
-                athlete = {
+                athleteJson = {
                     "_id" : newId,
                     "first" : first,
                     "last" : last,
+                    "namestring": athlete,
                     "permissions" : permissions,
                     "workouts" : [addedId],
                     "side" : side,
@@ -128,7 +144,7 @@ def valid_athletes(addedId, teamId, athleteList):
                     "teamId" : teamId
                 }
                 # add athlete document to athlete db
-                add = addAthlete(athlete)
+                add = addAthlete(athleteJson)
                 if not add:
                     error += "failed to add athlete"
                 
