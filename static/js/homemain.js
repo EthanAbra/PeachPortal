@@ -1,12 +1,15 @@
 const chunk_size = 64 * 1024;
 var files = [];
 var socketio = io();
-console.log(socketio)
+// console.log(socketio)
 // file drop handling
 var dropzone = document.getElementById('dropzone');
 dropzone.ondragover = function(e) {
     e.preventDefault();
 }
+
+
+
 dropzone.ondrop = function(e) {
     e.preventDefault();
     for(var i = 0; i < e.dataTransfer.files.length; i++) {
@@ -20,18 +23,18 @@ dropzone.ondrop = function(e) {
         progress.classList.add('file-progress');
         progress.classList.add('in-progress');
 
-        messages = document.createElement('div');
-        messages.classList.add('peach-not-processed')
-        messages.classList.add('peach-processed')
-        messages.classList.add('no-athletes')
-        messages.classList.add('athletes-processed')
+        // messages = document.createElement('div');
+        // messages.classList.add('peach-not-processed')
+        // messages.classList.add('peach-processed')
+        // messages.classList.add('no-athletes')
+        // messages.classList.add('athletes-processed')
 
         filediv.appendChild(filename);
         filediv.appendChild(progress);
 
 
         document.getElementById('filelist').appendChild(filediv);
-        document.getElementById('messagelist').appendChild(messages);
+        // document.getElementById('messagelist').appendChild(messages);
         files.push({
             file: e.dataTransfer.files[i],
             progress: progress,
@@ -57,7 +60,7 @@ function readFileChunk(file, offset, length, success, error) {
 
 // read success callback
 function onReadSuccess(file, offset, length, data) {
-    console.log("ors")
+    // console.log("ors")
     if (this.done)
         return;
     if (!socketio.connected) {
@@ -83,35 +86,42 @@ function onReadSuccess(file, offset, length, data) {
 }
 
 function onReadComplete(file) {
-    console.log(file.file.name)
     if (file.done){
         document.getElementById('messagelist').innerHTML +=
-        '<div class="alert alert-warning" role="alert"> file ' + String(file.file.name) + ' received. server processing <div class="loader" id = "' + String(file.file.name).replace(/\W/g,'_') + '" ><div class="duo duo1"><div class="dot dot-a"></div><div class="dot dot-b"></div></div><div class="duo duo2"><div class="dot dot-a"></div><div class="dot dot-b"></div> </div></div></div>';
-        socketio.emit('write-complete', file.server_filename, function(ack, addedId, teamId, athleteList){
-            var x = document.getElementById(String(file.file.name).replace(/\W/g,'_'));
-            if (x.style.display === "none") {
-                x.style.display = "block";
-            } else {
-                x.style.display = "none";
-            }
-            if(!ack){
-                document.getElementById('messagelist').innerHTML +=
-                '<div class="alert alert-danger" role="alert"> malformed peach data in file ' + String(file.file.name) + ' </div>';
-                return
-            }
-            document.getElementById('messagelist').innerHTML += 
-            '<div class="alert alert-success" role="alert"> peach processed in file ' + String(file.file.name) + '</div>';
-            onProcessedPeach(file, addedId, teamId, athleteList)
-        })//.bind(this);
-    }
+        '<div class="alert alert-warning" role="alert"> file ' + String(file.file.name) + ' received. server processing <div class="loader" id = "' + String(file.server_filename).replace(/\W/g,'_') + '" ><div class="duo duo1"><div class="dot dot-a"></div><div class="dot dot-b"></div></div><div class="duo duo2"><div class="dot dot-a"></div><div class="dot dot-b"></div> </div></div></div>';
+        socketio.emit('write-complete', {"serverfilename": file.server_filename, "clientfilename": String(file.file.name)}); 
+    }//.bind(this);
 }
 
-function onProcessedPeach(file, addedId, teamId, athleteList){
-    console.log("opp")
+
+socketio.on('peach processed', function(data) {
+    // console.log('opp')
+    var x = document.getElementById(data.serverfilename.replace(/\W/g,'_'));
+    if (x.style.display === "none") {
+        x.style.display = "block";
+    } else {
+        x.style.display = "none";
+    }
+    if(!data.ack){
+        document.getElementById('messagelist').innerHTML +=
+        '<div class="alert alert-danger" role="alert"> malformed peach data in file ' + String(data.clientfilename) + ' </div>';
+        return
+    }
+    document.getElementById('messagelist').innerHTML += 
+    '<div class="alert alert-success" role="alert"> peach processed in file ' + String(data.clientfilename) + '</div>';
+    onProcessedPeach(data.clientfilename, data.addedId, data.teamId, data.athleteList)
+})
+
+
+
+
+function onProcessedPeach(clientfilename, addedId, teamId, athleteList){
+    // console.log(clientfilename)
+    // console.log(addedId)
     socketio.emit('valid-athletes', addedId, teamId, athleteList, function(ack, createdAthleteList){
         if(!ack){
             document.getElementById('messagelist').innerHTML += 
-            '<div class="alert alert-danger" role="alert"> no athletes in file ' + String(file.file.name) + 
+            '<div class="alert alert-danger" role="alert"> no athletes in file ' + String(clientfilename) + 
             '<br>Please add full names for each crew member directly under the \'CrewInfo\', then \'Name\' header </div>';
             return
         }
