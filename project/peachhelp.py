@@ -19,6 +19,7 @@ def double_dip_module(theta3, thetadot3):
         else:
             return -1
 
+    # print(slopes)
     count = 1
     signed_slopes = []  
 
@@ -30,6 +31,8 @@ def double_dip_module(theta3, thetadot3):
             count = 1
 
     signed_slopes +=[posMult(slopes[-1]) * count]
+
+    # print(signed_slopes)
         
     dbl_dip_xs = []
     dbl_dip_ys = []
@@ -37,14 +40,17 @@ def double_dip_module(theta3, thetadot3):
     sidx = 0
     while sidx <= len(signed_slopes)-3:
         if signed_slopes[sidx] > 0 and signed_slopes[sidx+1] < 0 and signed_slopes[sidx+2] > 0:
-            so_far = sum(map(abs, signed_slopes[:sidx+2]))
-            dbl_dip_xs += [theta3[index_min_angle + so_far]]
-            dbl_dip_ys += [thetadot3[index_min_angle + so_far]]
+            so_far = sum(map(abs, signed_slopes[:sidx+3]))-1
+            so_far_high = abs(signed_slopes[sidx+2])+2
+            print(so_far_high)
+            dbl_dip_xs += [theta3[index_min_angle + so_far], theta3[index_min_angle + so_far + so_far_high]]
+            dbl_dip_ys += [thetadot3[index_min_angle + so_far], thetadot3[index_min_angle + so_far + so_far_high]]
             sidx += 2
         else: sidx += 1
 
 
     coords = list(zip(dbl_dip_xs, dbl_dip_ys))
+
         
     return coords
 
@@ -160,7 +166,7 @@ def ideal_stroke_module(theta3, thetadot3):
 
     stroke_dict['idealx'] = [drive_x_ideal, rec_x_ideal, b_slip_x_ideal]
     stroke_dict['idealy'] = [drive_y_ideal, rec_y_ideal, b_slip_y_ideal]
-
+    stroke_dict['drive_f'] = drive_f
 
     return stroke_dict
 
@@ -253,7 +259,61 @@ def plot_single(vec, ax, label=None, color = "#084594"):
 
     ax[1].multi_line(xs = ideal_stroke['idealx'], ys = ideal_stroke['idealy'], line_join = 'bevel', line_width = 2, legend_label="Ideal Stroke")
 
+    # w = np.zeros(N)
 
+    idx_min_angle = min(range(len(theta)), key=theta.__getitem__)
+    idx_max_angle = idx_min_angle
+    while thetadot[idx_max_angle] > 0:
+        idx_max_angle +=1
+    
+
+    lowz = []
+    lowzw = []
+    lowxz = []
+
+    patches = []
+
+    larger = ideal_stroke['drive_f'](theta[idx_min_angle]) > thetadot[idx_min_angle]
+
+    for i in range(idx_min_angle, idx_max_angle):
+        if larger and ideal_stroke['drive_f'](theta[i]) > thetadot[i]:
+            lowz.append(ideal_stroke['drive_f'](theta[i]))
+            lowzw.append(thetadot[i])
+            lowxz.append(theta[i])
+        elif not larger and ideal_stroke['drive_f'](theta[i]) <= thetadot[i]:
+            lowzw.append(ideal_stroke['drive_f'](theta[i]))
+            lowz.append(thetadot[i])
+            lowxz.append(theta[i])
+        else:
+            larger = not larger
+            lowz.extend(reversed(lowzw))
+            lowxz.extend(reversed(lowxz))
+            patches += [(lowxz, lowz, larger)]
+            if not larger:
+                lowzw = [ideal_stroke['drive_f'](theta[i])]
+                lowz = [thetadot[i]]
+                lowxz = [theta[i]]
+            else:
+                lowz = [ideal_stroke['drive_f'](theta[i])]
+                lowzw = [thetadot[i]]
+                lowxz = [theta[i]]
+
+
+    if len(lowz) >0:
+        lowz.extend(reversed(lowzw))
+        lowxz.extend(reversed(lowxz))
+        patches += [(lowxz, lowz, not larger)]
+
+
+    for patch in patches:
+        if patch[2]:
+            ax[1].patch(patch[0], patch[1], color='green', fill_alpha = .2, line_alpha = 0)
+        else:
+            ax[1].patch(patch[0], patch[1], color='red', fill_alpha = .2, line_alpha = 0)
+
+    # ax[1].patch(highxz, highz, color='green', fill_alpha = .2)
+
+    # ax[1].patch(ideal_stroke['idealx'][0], w, color='green')
     
     if label:
         ax[1].line(x = theta, y = thetadot, legend_label = label, line_color = color, line_join = 'bevel', line_width = 2)
