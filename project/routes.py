@@ -130,6 +130,7 @@ def delete():
 
 
         if deleted:
+            removed_value = unpickledWorkouts.pop(workoutId, 'No workout found')
             ctr = 0
             for athlete in getAllAthletes(athlete['teamId']):
                 res = removeWorkoutFromAthlete(athlete['_id'], workoutId)
@@ -149,7 +150,7 @@ def delete():
 def workout():
     # load the user 
     user = current_user
-    print(user)
+    # print(user)
 
     if user.is_anonymous():
         return redirect('/login')
@@ -161,11 +162,14 @@ def workout():
     else:
         isAdmin = False
 
-    print(athlete['permissions'])
+    # print(athlete['permissions'])
     workoutId = request.args.get('w')
     
 
     meta = queryWorkoutMeta(workoutId)
+
+    if not meta:
+        return redirect('/workouts')
 
     piece_list = meta['piece_list']
 
