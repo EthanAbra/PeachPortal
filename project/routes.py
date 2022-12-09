@@ -345,7 +345,13 @@ def overallView(internalId= None):
 def workoutforseat():
     workoutId = request.args.get('w')
     seat_num = int(request.args.get('s'))
-    piece_num = int(request.args.get('piece'))
+
+    piece_num = request.args.get('piece')
+
+    if piece_num:
+        piece_num = int(piece_num)
+    else:
+        piece_num = 0
     
     practice, meta = unpickledWorkouts.get(workoutId, (None, None))
     
@@ -540,7 +546,7 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0):
             if num == seat_num:
                 response += ' active" role = "button" aria-pressed = "true'
             if not multi_piece:
-                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '" hx-target = "#raw">' + "Seat Details" + '</button>'
+                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
             else:
                 response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + str(piece_num) + '" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
             response += '</li>'
