@@ -7,17 +7,19 @@ from bokeh.plotting import show
 from bokeh.embed import components
 from bokeh.plotting import figure
 from bokeh.resources import INLINE
+from bokeh.models import Span, Label, LabelSet, PolyAnnotation
+
+def posMult(num):
+    if num >= 0:
+        return 1
+    else:
+        return -1
 
 def double_dip_module(theta3, thetadot3):
     slopes = []
     for idx in range(index_min_angle + resampled_drive_angles//8,index_max_angle):
         slopes += [thetadot3[idx]-thetadot3[idx-1]]
 
-    def posMult(num):
-        if num >= 0:
-            return 1
-        else:
-            return -1
 
     # print(slopes)
     count = 1
@@ -50,7 +52,6 @@ def double_dip_module(theta3, thetadot3):
 
 
     coords = list(zip(dbl_dip_xs, dbl_dip_ys))
-
         
     return coords
 
@@ -196,8 +197,8 @@ def svd_module(elite, npts, chosen_seat=None, chosen_range = None):
                 snapshots3[:,ind] = dat.flatten()
                 cols = np.array([1, 9, 17])
     mean3 = snapshots3.sum(1) / (numseats * numstrokes)
-    snapshots3 -= mean3[:,np.newaxis]
-    u3, sig3, vt3 = np.linalg.svd(snapshots3, full_matrices=False)
+    # snapshots3 -= mean3[:,np.newaxis]
+    u3, sig3, vt3 = None, None, None #np.linalg.svd(snapshots3, full_matrices=False)
     return {'mean': mean3, 'snapshots': snapshots3, "svd_vals": (u3, sig3, vt3)}
 
 
@@ -329,3 +330,204 @@ def plot_single(vec, ax, label=None, color = "#084594"):
         ax[1].yaxis.axis_label='Gate Force (N)'
 
     return mathDict
+
+
+
+def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", transparency = None, suppress_power = False, legend_title = ""):
+    # split a vector into (theta, thetadot) and plot
+    npts = len(vec) // 3
+    t = np.linspace(0, 1, npts+1)[:-1]
+    theta = vec[::3]
+    thetadot = vec[1::3]
+    thetaq = vec[2::3]
+    
+    idx_min_angle = min(range(len(theta)), key=theta.__getitem__)
+    idx_max_angle = idx_min_angle
+    while thetadot[idx_max_angle] > 0:
+        idx_max_angle +=1
+
+
+    max_force = max(thetadot[idx_min_angle:idx_max_angle])
+
+
+    start_70 = idx_min_angle+1
+    slopes = []
+
+    while thetadot[start_70] < max_force * .7:
+        start_70+=1
+        slopes += [thetadot[start_70]-thetadot[start_70-1]]
+
+    count = 1
+    signed_slopes = []  
+
+    for i in range(1,(idx_max_angle-idx_min_angle)//8 + 1):
+        if (slopes[i] >= 0 and slopes[i-1]>=0) or (slopes[i] < 0 and slopes[i-1]<0):
+            count+=1
+        else:
+            signed_slopes+=[posMult(slopes[i-1])*count]
+            count = 1
+
+    signed_slopes +=[posMult(slopes[-1]) * count]
+
+    print(signed_slopes)
+
+    dbl_dip_xs = []
+    dbl_dip_ys = []
+
+    sidx = 0
+    while sidx <= len(signed_slopes)-1:
+        if signed_slopes[sidx] < -1:
+            so_far = sum(map(abs, signed_slopes[:sidx]))
+            so_far_high = abs(signed_slopes[sidx])*2
+            dbl_dip_xs += [t[idx_min_angle + so_far], t[idx_min_angle + so_far + so_far_high]]
+            dbl_dip_ys += [thetadot[idx_min_angle + so_far], thetadot[idx_min_angle + so_far + so_far_high]]
+            break
+        else: sidx += 1
+
+    coordinates = []
+    annot = None
+
+    if dbl_dip_xs:
+        coordinates = list(zip(dbl_dip_xs, dbl_dip_ys))
+
+        print(coordinates)
+
+        plotxs=[coordinates[0][0], coordinates[0][0], coordinates[1][0], coordinates[1][0]]
+        plotys=[coordinates[0][1]-5, coordinates[0][1]+2, coordinates[1][1]+2, coordinates[1][1]-5]
+        annot = PolyAnnotation(
+            fill_color="red",
+            fill_alpha=0.3,
+            xs=plotxs,
+            ys = plotys)
+        lab = Label(
+            x=coordinates[0][0]-npts/2000,
+            y=(coordinates[0][1] + coordinates[1][1] + 1)/2,
+            angle = (plotys[2]-plotys[1])/(plotxs[2]-plotxs[1]), 
+            x_units='data', y_units = 'data', 
+            text='Sloppy\nBladework')
+
+
+
+    end_70 = idx_max_angle
+
+    while thetadot[end_70] < max_force * .7:
+        end_70-=1
+
+    span_start_70 = Span(location=t[start_70],
+                    dimension='height', line_color='blue',
+                    line_dash='dashed', line_width=3)
+
+    span_label = Label(
+        x=t[start_70]-npts/2000,
+        y=min(thetadot),
+        x_units='data', y_units = 'data', 
+        text='70%\nPeak\nForce')
+
+    ax[0].add_layout(span_label)
+
+
+    span_end_70 = Span(location=t[end_70],
+                    dimension='height', line_color='blue',
+                    line_dash='dashed', line_width=3)
+
+    span_label = Label(
+        x=t[end_70]-npts/2000,
+        y=min(thetadot),
+        x_units='data', y_units = 'data', 
+        text='70%\nPeak\nForce')
+
+    ax[0].add_layout(span_label)
+
+    ax[0].line(x = [t[start_70],t[end_70]], y = [thetadot[start_70], thetadot[end_70]], line_color = "red", line_dash = "dashed", line_width = 3)
+
+    span_label = Label(
+        x=t[start_70 + (end_70-start_70)//2]-npts/2000,
+        y=thetadot[end_70],
+        x_units='data', y_units = 'data', 
+        text='Time\n@70%')
+
+    ax[0].add_layout(span_label)
+
+
+    drive_start = Span(location=t[idx_min_angle],
+                        dimension='height', line_color='green',
+                        line_dash='dashed', line_width=3)
+
+    span_label = Label(
+        x=t[idx_min_angle]-npts/2000,
+        y=min(thetadot),
+        x_units='data', y_units = 'data', 
+        text='Catch')
+
+    ax[0].add_layout(span_label)
+
+    drive_end = Span(location=t[idx_max_angle],
+                    dimension='height', line_color='green',
+                    line_dash='dashed', line_width=3)
+
+    span_label = Label(
+        x=t[idx_max_angle]-npts/2000,
+        y=min(thetadot),
+        x_units='data', y_units = 'data', 
+        text='Finish')
+
+    ax[0].add_layout(span_label)
+    ax[0].add_layout(drive_start)
+    ax[0].add_layout(drive_end)
+    ax[0].add_layout(span_start_70)
+    ax[0].add_layout(span_end_70)
+
+
+
+
+    if label:
+        ax[0].line(x = t, y = thetadot, legend_label = label, line_color = color, line_join = 'bevel', line_width = 2)
+        ax[0].legend.background_fill_alpha = 0.2
+        ax[0].legend.location = "top_left"
+        ax[0].legend.label_text_font_size = '8pt'
+        ax[0].legend.spacing = 2
+        ax[0].legend.title = legend_title
+        ax[0].xaxis.axis_label='Time (normalized)'
+        ax[0].yaxis.axis_label='Gate Force (N)'
+    else:
+        ax[0].line(x = t, y = thetadot, line_color = color, line_join = 'bevel', line_width = 2)
+        ax[0].xaxis.axis_label='Time (normalized)'
+        ax[0].yaxis.axis_label='Gate Force (N)'
+
+    if annot:
+        ax[0].add_layout(annot)
+        ax[0].add_layout(lab)
+
+    if label2:
+        ax[1].line(x = t, y = theta, legend_label = label2, line_color = color, line_join = 'bevel', line_width = 2)
+        ax[1].legend.background_fill_alpha = 0.2
+        ax[1].legend.location = "top_left"
+        ax[1].legend.label_text_font_size = '8pt'
+        ax[1].legend.spacing = 2
+        ax[1].legend.title = legend_title
+
+    else:
+        ax[1].line(x = t, y = theta, line_color = color, line_join = 'bevel', line_width = 2)
+
+    span_label = Label(
+        x=t[idx_min_angle]-npts/2000,
+        y=min(theta),
+        x_units='data', y_units = 'data', 
+        text='Catch')
+
+    ax[1].add_layout(span_label)
+
+    span_label = Label(
+        x=t[idx_max_angle]-npts/2000,
+        y=min(theta),
+        x_units='data', y_units = 'data', 
+        text='Finish')
+
+    ax[1].add_layout(span_label)
+
+    ax[1].add_layout(drive_start)
+    ax[1].add_layout(drive_end)
+
+    ax[1].xaxis.axis_label='Time(Normalized)'
+    ax[1].yaxis.axis_label='Gate Angle'
+

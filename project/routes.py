@@ -430,6 +430,10 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0):
     cx[1] = figure(background_fill_color="#fafafa")
 
 
+    dx = [None]*2
+    dx[0] = figure(background_fill_color="#fafafa")
+    dx[1] = figure(background_fill_color="#fafafa")
+
 
     # stroke_nums = list(range(1, elite.numstrokes+1))
 
@@ -457,6 +461,11 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0):
     svdDict = peachhelp.svd_module(elite, 100, seat_num)
     
     peachhelp.plot_vector(svdDict['mean'], label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=bx)
+
+
+    peachhelp.plot_degree_velocity(svdDict['mean'], label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=dx)
+
+
 
     boat_svd = peachhelp.svd_module(elite, 100)
 
@@ -515,7 +524,8 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0):
     my_grid = grid([
         [ax[0],ax[1]],
         [bx[0], bx[1]],
-        [cx[0], cx[1]]
+        [cx[0], cx[1]],
+        [dx[0], dx[1]]
     ])
 
     my_grid.sizing_mode = "scale_both"
