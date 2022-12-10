@@ -332,7 +332,7 @@ def overallView(internalId= None):
             response +=  '<li class="nav-item">'  
             response += '<button class="btn btn-outline-primary"'
             if not multi_piece:
-                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '" hx-target = "#raw">' + "Seat Details" + '</button>'
+                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
             else:
                 response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + piece_num + '" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
             response += '</li>'
