@@ -1,13 +1,13 @@
 from io import StringIO
 from openpyxl import load_workbook
 from xlsx2csv import Xlsx2csv
-from .database import getAllWorkouts
+from .database import getAllWorkouts, getAllUnsplits, queryWorkoutMeta, queryUnsplitMeta
 import datetime
 from bson.binary import Binary
 import pickle
 import random
 from .peach import PeachData
-from .database import getAllWorkouts, queryWorkoutMeta
+from .slimpeach import SlimPeach
 import pandas as pd
 import json
 import xmltodict
@@ -41,7 +41,7 @@ def xlsxRead(filename, teamId):
     print("xlsxread called")
 
     idDict = get_sheet_ids(filename)
-
+    
 
     peach_frames = []
     piece_list = []
@@ -94,6 +94,46 @@ def xlsxRead(filename, teamId):
 
     print('read xlsx file')
     return True, workoutDict
+
+def xlsxReadUnsplit(filename, teamId):
+
+    print("xlsxreadunsplit called")
+
+
+
+    parsed = read_excel(filename, 1)
+
+    try:
+        data = SlimPeach(parsed)
+    except Exception as e:
+        print(e)
+        return False, "Powerline File is formatted incorrectly"
+
+
+    peach_bytes = pickle.dumps(data)
+
+    try:
+        nextId = int(getAllUnsplits(teamId, sort_by='_id')[0]['_id']) + 1 
+    except IndexError:
+        nextId = random.randint(1, 1000)
+    already_id = queryUnsplitMeta(nextId)
+    while already_id:
+        nextId = random.randint(10, 100000)
+        already_id = queryUnsplitMeta(nextId)
+
+    workoutDict = {
+        '_id' : nextId,
+        'title' : str(filename),
+        'peach_data' : Binary(peach_bytes),
+        'athlete_list': list(data.athlete_map),
+    }
+
+    print('read usnplit file')
+    return True, workoutDict
+
+
+
+# --------------------------------------------------------------------------------------#
 
 
 

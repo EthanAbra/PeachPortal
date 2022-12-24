@@ -15,11 +15,27 @@ body {
     padding-top: 40px;
 }
 
+#dropzoneunsplit {
+  width: 100%;
+  background-color: #ddd;
+  border: 4px dotted #0a61ff;
+  text-align: center;
+  vertical-align: middle;
+  padding-top: 40px;
+}
+
 #upload {
     margin: 20px 0 20px 0;
     padding: 5px;
     font-size: 105%;
 }
+
+#unsplitupload {
+  margin: 20px 0 20px 0;
+  padding: 5px;
+  font-size: 105%;
+}
+
 
 .filename {
     display: inline-block;

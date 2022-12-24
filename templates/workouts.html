@@ -5,7 +5,30 @@
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css">
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-        <!--<link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}"> --> 
+        <style type="text/css">
+            #unsplit-workouts {
+                display: none;
+            }
+        </style>
+        <script>
+            function splitWorkouts(){
+                var x = document.getElementById("ready-workouts");
+                var y = document.getElementById("unsplit-workouts");
+                x.style.display = "block";
+                y.style.display = "none";
+                document.getElementById("unsplitButton").className = "btn btn-outline-primary";
+                document.getElementById("splitButton").className = "btn btn-outline-primary active";
+            }
+
+            function unsplitWorkouts(){
+                var y = document.getElementById("ready-workouts");
+                var x = document.getElementById("unsplit-workouts");
+                x.style.display = "block";
+                y.style.display = "none";
+                document.getElementById("unsplitButton").className = "btn btn-outline-primary active";
+                document.getElementById("splitButton").className = "btn btn-outline-primary";
+            }
+        </script>
         <title>PeachPortal - Workouts</title>
     </head>
     <body>
@@ -29,7 +52,16 @@
             <div class="card" style="width: 100%;">
                 <div class="card-body">
                     <h3>Workouts for: {{athlete_name}}</h3>
-                    <ul class="list-group overflow-auto" style="height: 100%;">
+                    {% if delPerm %}
+                    <button class = "btn btn-outline-primary active" onclick = "splitWorkouts()" id = "splitButton">Ready Workouts</button>
+                    <button class = "btn btn-outline-primary" onclick="unsplitWorkouts()" id = "unsplitButton">Require Your Processing</button>
+                    <ul class="list-group overflow-auto" id = "unsplit-workouts" style="height: 100%;">
+                        {% for workout in unsplitworkouts %}
+                            <li  class="list-group-item"><a href="/splitpieces?w={{workout['_id']}}"><h5>{{workout['title']}}</h5></a><span ><a style="color: red;" href="/deleteWorkout?wid={{workout['_id']}}&aid={{athId}}&unsplit=True">(Delete)</a></span></li>
+                        {% endfor %}
+                    </ul>
+                    {%endif%}
+                    <ul class="list-group overflow-auto" id = "ready-workouts" style="height: 100%;">
                         {% for workout in workouts %}
                             <li  class="list-group-item"><a href="/workout?w={{workout['_id']}}"><h5>{{workout['title']}}</h5></a>{{workout['date']}} {% if delPerm %}<span ><a style="color: red;" href="/deleteWorkout?wid={{workout['_id']}}&aid={{athId}}">(Delete)</a></span>{% endif %}</li>
                         {% endfor %}

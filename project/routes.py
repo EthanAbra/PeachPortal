@@ -3,26 +3,28 @@ from bokeh.models import Label, LabelSet, PolyAnnotation
 import seaborn as sns
 from bokeh.layouts import layout, grid
 from bokeh.plotting import show
-from bokeh.embed import components
+from bokeh.embed import components, server_document
 from bokeh.plotting import figure
 from bokeh.palettes import Oranges9
 from bokeh.resources import INLINE
 import json
 from flask_login import current_user, login_required, logout_user
 import uuid
-from threading import Lock, Thread
 import polyfile
 from . import peachhelp
 from flask import Flask, Blueprint, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
-from .database import getAllAthletes, getAllWorkouts, queryAthlete, queryWorkoutData, queryTeam
-from .database import queryWorkoutMeta, deleteWorkout, removeWorkoutFromAthlete, editAthlete, editWorkout
+from flask import current_app, g
+from .database import getAllAthletes, getAllWorkouts, queryAthlete, queryWorkoutData, queryTeam, queryUnsplitMeta
+from .database import queryWorkoutMeta, deleteWorkout, removeWorkoutFromAthlete, editAthlete, editWorkout, deleteUnsplit
+from .database import getAllUnsplits
 import numpy as np
 from . import socketio
 from . import login_manager
 from .models import User
 from . import peach
 import collections
+from bokeh.server.util import bind_sockets
 
 unpickledWorkouts = collections.defaultdict()
 
@@ -82,8 +84,9 @@ def workouts():
     athlete = queryAthlete(user._id)
 
     workouts = getAllWorkouts(athlete['teamId'])
-    
+    unsplitworkouts = []
     if 'cox' in athlete['permissions'] or 'admin' in athlete['permissions']:
+        unsplitworkouts = getAllUnsplits(athlete['teamId'])
         delPerm = True
     else:
         delPerm = False
@@ -94,7 +97,7 @@ def workouts():
             renderlist += [workout]
 
     
-    html = render_template('workouts.html' ,workouts=renderlist, delPerm=delPerm, athId=athlete['_id'], athlete_name = athlete['first'] + " " + athlete['last'])
+    html = render_template('workouts.html' ,workouts=renderlist, unsplitworkouts = unsplitworkouts, delPerm=delPerm, athId=athlete['_id'], athlete_name = athlete['first'] + " " + athlete['last'])
     return make_response(html)
 
 @main_bp.route('/deleteWorkout', methods=['GET', 'POST'])
@@ -109,11 +112,13 @@ def delete():
 
     # print(user)
     athlete = queryAthlete(user._id)
+    
 
     workoutId = request.args.get('wid')
     athleteId = request.args.get('aid')
 
     if request.method == 'POST':
+        print(request.form)
         athleteId = int(request.form['aid'])
         workoutId = int(request.form['wid'])
 
@@ -122,11 +127,19 @@ def delete():
             print(f"Delete accessed by unauthorized user {athlete['first']} {athlete['last']}")
             return render_template('error.html'), 500
         # verify requesting athlete 'owns' that workout
-        if athlete['teamId'] != queryWorkoutMeta(workoutId)['teamId']:
-            print(f"Cross-team delete attempted by user {athlete['first']} {athlete['last']} on team:{athlete['teamId']}")
-            return render_template('error.html'), 500
+
         
-        deleted = deleteWorkout(workoutId)
+        if request.form['unsplit'] == 'True':
+            if athlete['teamId'] != queryUnsplitMeta(workoutId)['teamId']:
+                print(f"Cross-team delete attempted by user {athlete['first']} {athlete['last']} on team:{athlete['teamId']}")
+                return render_template('error.html'), 500
+            deleted = deleteUnsplit(workoutId)
+            return redirect('/workouts')
+        else:
+            if athlete['teamId'] != queryWorkoutMeta(workoutId)['teamId']:
+                print(f"Cross-team delete attempted by user {athlete['first']} {athlete['last']} on team:{athlete['teamId']}")
+                return render_template('error.html'), 500
+            deleted = deleteWorkout(workoutId)
 
 
         if deleted:
@@ -139,8 +152,13 @@ def delete():
             print(f'workout {workoutId} deleted, removed from {ctr} profiles')
             return redirect('/workouts')
 
-    workout = queryWorkoutMeta(workoutId)
-    html = render_template('confirmDelete.html', workout=workout, wid=workoutId, aid=athleteId)
+    unsplit = False
+    if request.args.get('unsplit') is not None:
+        workout = queryUnsplitMeta(workoutId)
+        unsplit = True
+    else:
+        workout = queryWorkoutMeta(workoutId)
+    html = render_template('confirmDelete.html', workout=workout, wid=workoutId, aid=athleteId, unsplit = str(unsplit))
     return make_response(html)
 
 
@@ -669,3 +687,19 @@ def handleError(ex):
     return response
 
 
+#----------------------------------------------------------------------
+"""Bokeh application"""
+#----------------------------------------------------------------------
+
+
+@main_bp.route('/splitpieces', methods = ['GET', 'POST'])
+@login_required
+def splitPieces():
+    if request.args.get('w'):
+        unsplitId = int(request.args.get('w'))
+    else:
+        return render_template('error.html'), 500
+
+        
+    script = server_document('http://localhost:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId})
+    return render_template("embed.html", script=script, template="Flask")

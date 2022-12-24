@@ -1,7 +1,7 @@
 from project import create_app, socketio
 
 from project.database import queryAthlete, addWorkout, deleteWorkout, queryAthleteByName, addWorkoutToAthlete
-from project.database import getCredentialsbyId, addCredentials, addAthlete, getAllAthletes
+from project.database import getCredentialsbyId, addCredentials, addAthlete, getAllAthletes, addUnsplit
 from flask import Flask, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import LoginManager, current_user
@@ -11,7 +11,7 @@ from polyfile.magic import MagicMatcher
 import random
 import bcrypt
 from project import peachhelp
-from project.xlsxMethods import xlsxRead
+from project.xlsxMethods import xlsxRead, xlsxReadUnsplit
 import os
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
@@ -21,9 +21,6 @@ from fuzzywuzzy import process
 #-----------------------------------------------------------------------
 
 
-
-
-# print('capp called')
 @socketio.on('start-transfer')
 def start_transfer(filename, size):
     print("receivd start transfer")
@@ -156,6 +153,39 @@ def valid_athletes(addedId, teamId, athleteList):
     else:
         deleteWorkout(addedId)
         return False
+    
+@socketio.on('write-complete-unsplit')
+def write_complete(data):
+
+    user = current_user
+    # print(user)
+    athleteId = user._id
+    athlete = queryAthlete(athleteId)
+    teamId = athlete['teamId']
+
+    def mimewrap(serverfilename):
+        for match in MagicMatcher.DEFAULT_INSTANCE.match(serverfilename):
+            print(f"Match string: {match!s}")
+            if str(match).startswith("Microsoft Excel 2007"):
+                return True
+
+    
+    if not mimewrap(data['serverfilename']):
+        os.remove(data['serverfilename'])
+        return False, data['serverfilename']
+
+    success, workout = xlsxReadUnsplit(data['serverfilename'], teamId)
+    os.remove(data['serverfilename'])
+
+    if not success:
+        return False, data['serverfilename']
+
+    addedId = addUnsplit(workout, teamId)
+    if not addedId:
+        return False, data['serverfilename']
+    else:
+        print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
+    socketio.emit('unsplit processed',{'ack':True, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename'], 'addedId': addedId, 'teamId' :teamId, 'athleteList':workout['athlete_list']})
 
 
 app = create_app(debug=True)
