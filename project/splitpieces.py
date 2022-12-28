@@ -2,10 +2,10 @@ import numpy as np
 from bokeh.plotting import figure, show
 from bokeh.io import output_notebook, curdoc
 from bokeh.layouts import layout, row, column, Spacer, gridplot, grid
-from bokeh.models import CustomJS, RangeSlider, BoxAnnotation, Button, Dropdown, TextInput
+from bokeh.models import CustomJS, RangeSlider, BoxAnnotation, Button, Dropdown, TextInput, AutocompleteInput
 from bokeh.application import Application
 from bokeh.application.handlers import FunctionHandler
-from .database import queryUnsplitData
+from .database import queryUnsplitData, getAllAthletes
 import os
 from dotenv import load_dotenv
 import pymongo
@@ -31,11 +31,18 @@ def my_insort_left(a, x, lo=0, hi=None):
         else: hi = mid
     a.insert(lo, x)
 
+def convertMillis(millis):
+    seconds=(millis/1000)%60
+    minutes=(millis/(1000*60))%60
+    return seconds, int(minutes)
+
 
 def my_gui(doc):
     args = doc.session_context.request.arguments
     unsplitId = int(args.get('id')[0])
     practice = queryUnsplitData(unsplitId, bokehdb)
+    athlete_completes = [athlete['namestring'] for athlete in getAllAthletes(str(int(args.get('teamId')[0])), 'name', False, bokehdb)]
+    print(athlete_completes)
     elite = practice['peach_data']
     athlete_map = elite.athlete_map
     if len(athlete_map)==0:
@@ -64,8 +71,7 @@ def my_gui(doc):
                               title=None,show_value=False, height = 50, height_policy = "fixed", sizing_mode = "stretch_width", margin = (45,10,50,0))
     spacer_edit = Spacer(width=40)
     
-    make_piece = Button(label="Make Piece", button_type="success",height = 100, width = 100, height_policy = "fixed", margin = (0,0,500,0))
-    
+    make_piece = Button(label="Make Piece", button_type="success",height = 100, width = 100, height_policy = "fixed", margin = (0,0,500,0), css_classes =['custom_button_bokeh'])
     
     def toggleRemoveCallback(attr):
         rootLayout = doc.get_model_by_name('rootLayout')
@@ -81,8 +87,8 @@ def my_gui(doc):
             tryconf.visible = False
         rootLayout.children[1].center.remove(trycbox)
         rootLayout.children[0].center.remove(trymbox)
-        
-        
+
+
     def toggleConfirmCallback(attr):
         rootLayout = doc.get_model_by_name('rootLayout')
         listOfSubLayouts = rootLayout.children[-2].children.copy()
@@ -95,48 +101,50 @@ def my_gui(doc):
             retDict['athletemap'] =  [x[0].value for x in item[2]._property_values['children']]
             pieceArr.append(retDict)
         print(pieceArr)
-        
-        
+        about()
+
+
     def toggleMakeCallback(attr):
         # Get the layout object added to the documents root
         rootLayout = doc.get_model_by_name('rootLayout')
-        
         listOfSubLayouts = rootLayout.children[-2].children.copy()
-        
+
         crop_start = int(box.left)
         crop_end = int(box.right)
-        
+
+        timesecs, timemins = convertMillis(elite.start_times[crop_end]-elite.start_times[crop_start])
+
         tryname = doc.get_model_by_name('tabs,' + str(crop_start) + "," + str(crop_end))
-        
+
         if tryname is not None:
-            print('tnnamenotnone')
             return
-        
-        
-        text_inputs = [TextInput(value=athlete, title="Seat " + str(athIdx+1) + ":",  
+
+        text_inputs = [AutocompleteInput(value=athlete, title="Seat " + str(athIdx+1) + ":", completions = athlete_completes,
                                  name = 'tinp,' + str(crop_start) + "," + str(crop_end)) for athIdx, athlete in enumerate(athlete_map)]
         title_input = TextInput(value = "Strokes " + str(crop_start)+'-'+str(crop_end), align="center",
                                 title = "Piece Name:", name = 'tinp,' + str(crop_start) + "," + str(crop_end))
         rmv_piece = Button(label="Remove Piece", button_type="danger", name = str(crop_start) + "," + str(crop_end), width_policy='max', height = 60, height_policy = "fixed")
         rmv_piece.on_click(toggleRemoveCallback)
-        
-        p3 = figure(min_border = 0)
-        plotToAdd = p3
+
+        p3 = figure(min_border = 0, title='^^CHANGE ABOVE^^ Strokes %d-%d, Duration %dm %.2fs' %
+        (crop_start, crop_end, timemins, timesecs))
+        p3.title.text_color="red"
+        p3.title.text_font_style="bold"
         p3.line(stroke_nums[crop_start:crop_end+1],boat_pow[crop_start:crop_end+1])
         tab1 = TabPanel(child=p3, title="piece")
 
         p5 = column(rmv_piece, title_input, grid(text_inputs, ncols = 2))
-        
+
         tab2 = TabPanel(child=p5, title="piece info")
 
         tabs = Tabs(tabs=[ tab1, tab2 ], name = 'tabs,' + str(crop_start)+','+str(crop_end), margin = (105,0,-105,0))
-        
+
         listOfSubLayouts = [x[0] for x in listOfSubLayouts]
-        
+
         my_insort_left(listOfSubLayouts, tabs) 
-        
+
         rootLayout.children[-2] = gridplot(children = listOfSubLayouts, ncols=2, toolbar_location = None)
-            
+
         cropbox = BoxAnnotation(fill_alpha=0.5, line_alpha=0.5, level='underlay', 
                                 fill_color = 'green', left=crop_start, right=crop_end, name='cbox,' +  str(crop_start) + "," + str(crop_end))
         p2.add_layout(cropbox)
@@ -145,7 +153,6 @@ def my_gui(doc):
         p1.add_layout(mainbox)
         tryconf = doc.get_model_by_name('confirm,' + str(elite.numstrokes*10))
         tryconf.visible = True
-        
 
         
     # Set the callback for the toggle button

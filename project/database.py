@@ -71,6 +71,7 @@ def queryAthleteByName(first, last, team, db = flaskdb):
         return None
 
 def getAllAthletes(teamId, sort_by='name', active_only=False, db = flaskdb):
+    print(f'getAllAthletes called with teamId: {teamId}')
     try:
         if active_only:
             return db.athletes.find({'active': True, 'teamId' : teamId}, sort=[(sort_by, pymongo.ASCENDING)])
@@ -80,9 +81,10 @@ def getAllAthletes(teamId, sort_by='name', active_only=False, db = flaskdb):
         print(str(e))
         return None
 
-def addWorkoutToAthlete(athleteId, workoutId, db = flaskdb):
+def addWorkoutToAthlete(athleteId, workoutId, piece_list, db = flaskdb):
+    print(f"addWorkouttoAthlete called for {athleteId}")
     try:
-        result = db.athletes.update_one({'_id' : int(athleteId)}, {'$push' : {"workouts" : workoutId}})
+        result = db.athletes.update_one({'_id' : int(athleteId)}, {'$push' : {"workouts" : workoutId}, '$set': {"piecelist." + str(workoutId): piece_list}})
         return result
     except Exception as e:
         print(str(e))
@@ -114,11 +116,12 @@ def addWorkout(workoutDict, teamId, db = flaskdb):
         print(str(e))
         return None
     
-def addUnsplit(workoutDict, teamId, db = flaskdb):
+def addUnsplit(workoutDict, teamId, serverfilename, db = flaskdb):
     print(f'addunsplit called with {teamId}')
     dataDict = collections.defaultdict()
     try:
         workoutDict['teamId'] = teamId
+        workoutDict['serverfilename'] = serverfilename
         dataDict['peach_data'] = workoutDict.pop('peach_data')
         dataDict['teamId'] = teamId
         result = db.unsplitsmeta.insert_one(workoutDict)
@@ -333,4 +336,4 @@ def editCredentialsBatch(athleteId, field1, value1, field2, value2, field3, valu
 # Test code
 
 if __name__ == "__main__":
-    pass
+    print(getAllAthletes(346502))

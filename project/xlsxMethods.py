@@ -79,16 +79,23 @@ def xlsxRead(filename, teamId):
      
 
 
-
-    #TODO: NOTES & ATHLETE LIST MULTI-DIMENSIONAL
-
+    #TODO: ATHLETE LIST MULTI-DIMENSIONAL
+    athlete_map = [list(data[0].get_athletes())]
+    #print(piece_list[0])
+    for datIdx, datum in enumerate(data[1:]):
+        #print(piece_list[datIdx+1])
+        if len(list(datum.get_athletes()))<len(athlete_map[-1]):
+            athlete_map.append(athlete_map[-1])
+        else:
+            athlete_map.append(list(datum.get_athletes()))
+            
     workoutDict = {
         '_id' : nextId,
         'title' : str(filename),
         'date' : data[0].get_date(),
         'peach_data' : Binary(peach_bytes),
         'notes' : list(data[0].get_notes()),
-        'athlete_list': list(data[0].get_athletes()),
+        'athlete_list': athlete_map,
         'piece_list': piece_list
     }
 

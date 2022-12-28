@@ -1,7 +1,7 @@
 from polyfile.magic import MagicMatcher
 from bokeh.models import Label, LabelSet, PolyAnnotation
 import seaborn as sns
-from bokeh.layouts import layout, grid
+from bokeh.layouts import layout, grid, gridplot, row
 from bokeh.plotting import show
 from bokeh.embed import components, server_document
 from bokeh.plotting import figure
@@ -188,6 +188,12 @@ def workout():
 
     if not meta:
         return redirect('/workouts')
+    
+    if meta['teamId'] != athlete['teamId']:
+        return redirect('/workouts')
+
+    if not isAdmin and workoutId not in athlete['workouts']:
+        return redirect('/workouts')
 
     piece_list = meta['piece_list']
 
@@ -203,12 +209,17 @@ def workout():
     else:
         seatnum, startingview = myworkout(workoutId)
 
-
-    athlete_map = ""
-    for idx, athleteName in enumerate(meta['athlete_list']):
-        athlete_map += '<span style="color:' +  colors[idx] + '">Seat ' +str(idx+1) + ": "+ athleteName + "</span>, "
-        
-    athlete_map = athlete_map[:-2]
+    totalspan = ""
+    for pieceIdx, piece in enumerate(meta['athlete_list']):
+        spanner = '<span>Piece ' + str(pieceIdx+1) + ": </span>"
+        for idx, athlet in enumerate(piece):
+            spapender = ", </span>" if idx<7 else "</span>"
+            spanner += '<span style=color:' +  colors[idx] + '>Seat ' +str(idx+1) + \
+                ": "+ athlet + spapender
+        if pieceIdx > 0:
+            totalspan += "<br>"
+        totalspan += spanner
+                
 
     html = render_template(
         'workout.html',
@@ -222,7 +233,7 @@ def workout():
         colors = colors,
         piece_list = piece_list,
         seatnum = seatnum,
-        athlete_map = athlete_map
+        athlete_map = totalspan
     )
 
     return html
@@ -231,7 +242,7 @@ def workout():
 @main_bp.route('/workoutoverall', methods = ['POST'])
 @login_required
 def overallView(internalId= None):
-
+    # TODO: SEATRACING LOGIC. GROSS.
     npts = 100
 
     user = current_user
@@ -259,23 +270,32 @@ def overallView(internalId= None):
 
     colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
 
-    ax = [None]*9
-    sizer = "scale_width"
-    ax[0] = figure(background_fill_color="#fafafa", sizing_mode = sizer)
-    ax[1] = figure(background_fill_color="#fafafa", sizing_mode = sizer)
-    ax[2] = figure(background_fill_color="#fafafa", sizing_mode = sizer)
-    ax[3] = figure(background_fill_color="#fafafa", sizing_mode = sizer)
-    ax[4] = figure(background_fill_color="#fafafa", sizing_mode = sizer)
-    ax[5] = figure(background_fill_color="#fafafa", sizing_mode = sizer)
-    ax[6] = figure(background_fill_color="#fafafa", sizing_mode = sizer)
-    ax[7] = figure(background_fill_color="#fafafa", sizing_mode = sizer)
-    ax[8] = figure(background_fill_color="#fafafa", sizing_mode="stretch_width")
+
+    athDict = {}
+    athleteMap = meta['athlete_list']
+    for pieceIdx in range(len(athleteMap)):
+        for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
+            in_dict = athDict.get(piece_athlete,None)
+            if in_dict is not None:
+                pl, side = in_dict
+                pl.append(pieceIdx)
+                athDict[piece_athlete] = (pl,side)
+            else:
+                side = 'port' if paidx%2 != 0 else 'starboard'
+                athDict[piece_athlete] = ([pieceIdx], side)
+
+    
+    ax = [None]* len(athleteMap[int(piece_num)])
+    for i in range(len(athleteMap[int(piece_num)])):
+        ax[i] = figure(background_fill_color="#fafafa")
+
+    ax.append(figure(background_fill_color="#fafafa"))#, sizing_mode="stretch_width"))
 
 
     stroke_nums = list(range(1, elite.numstrokes+1))
 
     average_aper_data = elite.get_average_aper_data()
-    for peep in range(8):
+    for peep in range(len(athleteMap[int(piece_num)])):
         theta3 = []
         thetadot3 = []
         for s in range(1, elite.numstrokes):
@@ -288,14 +308,15 @@ def overallView(internalId= None):
             border_line_color='black', border_line_alpha=.5,
             background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
 
-        ax[peep].multi_line(xs = theta3, ys = thetadot3, color=colors[peep],line_alpha = max(-0.001111*elite.numstrokes + 0.2722, .02), line_join = 'bevel', line_width = 2, legend_label="%d seat" %(peep+1))
+        ax[peep].multi_line(xs = theta3, ys = thetadot3, color=colors[peep],line_alpha = max(-0.001111*elite.numstrokes + 0.2722, .02), 
+                            line_join = 'bevel', line_width = 2, legend_label=athleteMap[int(piece_num)][peep])
         ax[peep].xaxis.axis_label='Gate Angle °'
         ax[peep].yaxis.axis_label='Gate Force (N)'
         ax[peep].add_layout(label)
-        ax[8].line(x = stroke_nums, y = elite.aper_data[:,1+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label="%d seat" %(peep+1))
+        ax[-1].line(x = stroke_nums, y = elite.aper_data[:,1+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label=athleteMap[int(piece_num)][peep])
 
     boat_pow = elite.get_boat_power()
-    ax[8].line(x = stroke_nums, y = boat_pow, line_join = 'bevel', line_width = 2, legend_label = "Average Boat Power")
+    ax[-1].line(x = stroke_nums, y = boat_pow, line_join = 'bevel', line_width = 2, legend_label = "Average Boat Power")
 
     
 
@@ -305,20 +326,16 @@ def overallView(internalId= None):
             border_line_color='black', border_line_alpha=.5,
             background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
 
-    ax[8].add_layout(label)
+    ax[-1].add_layout(label)
 
 
-    bow_four = [ax[0], ax[1], ax[2], ax[3]]
-    stern_four = [ax[4],ax[5],ax[6],ax[7]]
 
-
-    my_grid = grid([
-        bow_four,
-        stern_four,
-        [ax[8]],
+    my_grid = layout([
+        gridplot(children = ax[0:len(athleteMap[int(piece_num)])], ncols=4),
+        row(ax[-1], sizing_mode="stretch_width")
     ])
 
-    my_grid.sizing_mode = "scale_both"
+    # my_grid.sizing_mode = "scale_both"
 
     response = ""
 
@@ -417,23 +434,38 @@ def myworkout(internalId = None):
     if not piece_num:
         elite = practice['peach_data'][0]
     else:
+        if int(piece_num) not in athlete['piecelist'][workoutId]:
+            piece_num = int(min(athlete['piecelist'][workoutId]))
         elite = practice['peach_data'][int(piece_num)]
+        
+    athDict = {}
+    athleteMap = meta['athlete_list']
+    for pieceIdx in range(len(athleteMap)):
+        for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
+            in_dict = athDict.get(piece_athlete,None)
+            if in_dict is not None:
+                pl, side = in_dict
+                pl.append(pieceIdx)
+                athDict[piece_athlete] = (pl,side)
+            else:
+                side = 'port' if paidx%2 != 0 else 'starboard'
+                athDict[piece_athlete] = ([pieceIdx], side)
+        
+    my_pieces = athDict[athlete['namestring']]
 
     if internalId:
         internal = True
 
-    seat_num = meta['athlete_list'].index(athlete['first'] + " " + athlete['last'])
+    seat_num = meta['athlete_list'][piece_num].index(athlete['first'] + " " + athlete['last'])
     
-    return seat_num, individual_workout(elite, seat_num, meta, internal)
+    return seat_num, individual_workout(elite, seat_num, meta, internal, my_pieces)
 
 
 
-def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0):
+def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, piecers=None):
     npts = 100
 
     colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
-
-
 
     ax = [None]*2
     ax[0] = figure(background_fill_color="#fafafa")
@@ -480,10 +512,7 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0):
     
     peachhelp.plot_vector(svdDict['mean'], label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=bx)
 
-
     peachhelp.plot_degree_velocity(svdDict['mean'], label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=dx)
-
-
 
     boat_svd = peachhelp.svd_module(elite, 100)
 
@@ -552,16 +581,23 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0):
 
     multi_piece = len(meta['piece_list']) > 1
 
+    # TODO: only render the pieces that belong to this athlete
+    piece_loop = []
+    if piecers is None:
+        piece_loop = zip(meta['piece_list'], list(range(len(meta['piece_list']))))
+    else:
+        piece_loop = [(meta['piece_list'][i], i) for i in piecers]
+
     if not internal:
         if multi_piece:
             response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
-            for num, piece in enumerate(meta['piece_list']):
+            for piece, num in piece_loop:
                 response +=  '<li class="nav-item">'  
                 response += '<button class="btn btn-outline-info'
                 if num == piece_num:
                     response += ' active" role = "button" aria-pressed = "true'
                 response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s=' 
-                response += str(seat_num) + '&piece=' + str(num) + '" hx-target = "#raw">' + piece + '</button>' 
+                response += str(seat_num) + '&piece=' + str(num) + '" hx-target = "#raw">' + str(piece) + '</button>' 
                 response += '</li>'
             response += '</ul> </div>'
         response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
@@ -695,11 +731,26 @@ def handleError(ex):
 @main_bp.route('/splitpieces', methods = ['GET', 'POST'])
 @login_required
 def splitPieces():
+    user = current_user
+    if user.is_anonymous():
+        return redirect('/login')
+    
     if request.args.get('w'):
         unsplitId = int(request.args.get('w'))
     else:
         return render_template('error.html'), 500
 
+    athleteId = user._id
+    athlete = queryAthlete(athleteId)
+
+    if 'admin' not in athlete['permissions'] and 'cox' not in athlete['permissions']:
+        return render_template('error.html'), 500
+     
+
+
+    teamId = athlete['teamId']
         
-    script = server_document('http://localhost:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId})
+    script = server_document('http://localhost:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId, "teamId": teamId})
+    
+    
     return render_template("embed.html", script=script, template="Flask")

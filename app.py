@@ -50,7 +50,7 @@ def write_chunk(filename, offset, data):
 
 @socketio.on('write-complete')
 def write_complete(data):
-    print(data)
+    print("wrcomp")
 
     user = current_user
     # print(user)
@@ -86,9 +86,23 @@ def write_complete(data):
     
 
 @socketio.on('valid-athletes')
-def valid_athletes(addedId, teamId, athleteList):
-    if len(athleteList) :
-        for ath_idx, athlete in enumerate(athleteList):
+def valid_athletes(addedId, teamId, athleteMap):
+    athDict = {}
+    for pieceIdx in range(len(athleteMap)):
+        for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
+            in_dict = athDict.get(piece_athlete,None)
+            if in_dict is not None:
+                pl, side = in_dict
+                pl.append(pieceIdx)
+                athDict[piece_athlete] = (pl,side)
+            else:
+                side = 'port' if paidx%2 != 0 else 'starboard'
+                athDict[piece_athlete] = ([pieceIdx], side)
+                
+    if len(athDict) :
+        for athlete, athleteTuple in athDict.items():
+            print(athlete)
+            athlete_piece_list, side = athleteTuple
             if len(athlete.split())==1:
                 first, last = athlete[0], athlete[0]
             else:
@@ -106,7 +120,7 @@ def valid_athletes(addedId, teamId, athleteList):
             if athlete_query:
                 athleteId = athlete_query['_id']
                 print(f'attributed to {athlete}', end='\r')
-                edited = addWorkoutToAthlete(athleteId, addedId)
+                edited = addWorkoutToAthlete(athleteId, addedId, athlete_piece_list)
             else: # we need to create a new athlete account for this individual
 
                 error = ''
@@ -123,11 +137,6 @@ def valid_athletes(addedId, teamId, athleteList):
 
                 # create athlete document from entered info
                 permissions = ['']
-                # if 'admin' in request.form.keys():
-                #     permissions.append('admin')
-                side = 'starboard'
-                if ath_idx % 2:
-                    side = 'port'
 
                 athleteJson = {
                     "_id" : newId,
@@ -136,10 +145,12 @@ def valid_athletes(addedId, teamId, athleteList):
                     "namestring": athlete,
                     "permissions" : permissions,
                     "workouts" : [addedId],
+                    "piecelist": {str(addedId): athlete_piece_list},
                     "side" : side,
                     "active" : True,
                     "teamId" : teamId
                 }
+                print(athleteJson)
                 # add athlete document to athlete db
                 add = addAthlete(athleteJson)
                 if not add:
@@ -156,7 +167,7 @@ def valid_athletes(addedId, teamId, athleteList):
     
 @socketio.on('write-complete-unsplit')
 def write_complete(data):
-
+    print("wrcompunsplit")
     user = current_user
     # print(user)
     athleteId = user._id
@@ -180,7 +191,7 @@ def write_complete(data):
     if not success:
         return False, data['serverfilename']
 
-    addedId = addUnsplit(workout, teamId)
+    addedId = addUnsplit(workout, teamId, data['serverfilename'])
     if not addedId:
         return False, data['serverfilename']
     else:
