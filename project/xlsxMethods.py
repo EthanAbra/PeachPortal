@@ -131,6 +131,8 @@ def xlsxReadUnsplit(filename, teamId):
     workoutDict = {
         '_id' : nextId,
         'title' : str(filename),
+        'date': data.date,
+        'notes': list(data.misc_info),
         'peach_data' : Binary(peach_bytes),
         'athlete_list': list(data.athlete_map),
     }

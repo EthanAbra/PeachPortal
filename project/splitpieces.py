@@ -1,15 +1,24 @@
 import numpy as np
-from bokeh.plotting import figure, show
-from bokeh.io import output_notebook, curdoc
+from bokeh.plotting import figure
 from bokeh.layouts import layout, row, column, Spacer, gridplot, grid
-from bokeh.models import CustomJS, RangeSlider, BoxAnnotation, Button, Dropdown, TextInput, AutocompleteInput
+from bokeh.models import CustomJS, RangeSlider, BoxAnnotation, Button, Dropdown, TextInput, AutocompleteInput, OpenURL
+from bokeh.models.sources import ColumnDataSource
 from bokeh.application import Application
 from bokeh.application.handlers import FunctionHandler
-from .database import queryUnsplitData, getAllAthletes
+from .database import queryUnsplitData, addWorkout, getAllAthletes, queryUnsplitMeta, getAllWorkouts, queryWorkoutMeta
+from .database import addWorkoutToAthlete, deleteWorkout, addCredentials, getCredentialsbyId, addAthlete
 import os
 from dotenv import load_dotenv
 import pymongo
 from bokeh.models import Tabs, TabPanel
+from .peach import PeachData
+from .xlsxMethods import read_excel
+import random
+import pickle
+from bson.binary import Binary
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
+
 
 
 load_dotenv()
@@ -18,6 +27,165 @@ if 'database_url' not in os.environ:
 else:
     CONNECTION_STRING = os.environ['database_url']
 bokehdb = pymongo.MongoClient(CONNECTION_STRING).peach
+
+def valid_athletes(addedId, teamId, athleteMap):
+    print(athleteMap)
+    athDict = {}
+    for pieceIdx in range(len(athleteMap)):
+        for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
+            in_dict = athDict.get(piece_athlete,None)
+            if in_dict is not None:
+                pl, side = in_dict
+                pl.append(pieceIdx)
+                athDict[piece_athlete] = (pl,side)
+            else:
+                side = 'port' if paidx%2 != 0 else 'starboard'
+                athDict[piece_athlete] = ([pieceIdx], side)
+                
+    print(athDict)
+    
+    if len(athDict) :
+        for athlete, athleteTuple in athDict.items():
+            print(athlete)
+            athlete_piece_list, side = athleteTuple
+            
+            if len(athlete.split())==1:
+                first, last = athlete[0], athlete[0]
+            else:
+                first, last = athlete.split() 
+            # print()
+
+            allAthletes = getAllAthletes(str(teamId), 'name', False, bokehdb)
+
+            athlete_query = None
+            for existingAthlete in allAthletes:
+                if fuzz.token_sort_ratio(existingAthlete['namestring'], athlete) >= 85:
+                    athlete_query = existingAthlete
+                    break
+
+            if athlete_query:
+                athleteId = athlete_query['_id']
+                print(f'attributed to {athlete}', end='\r')
+                edited = addWorkoutToAthlete(athleteId, addedId, athlete_piece_list, bokehdb)
+            else: # we need to create a new athlete account for this individual
+
+                error = ''
+                newId = random.randint(10, 100000)
+                already_id = getCredentialsbyId(newId, bokehdb)
+                while already_id:
+                    newId = random.randint(10, 100000)
+                    already_id = getCredentialsbyId(newId, bokehdb)
+     
+                # add temporary login credentials to credentials DB
+                add = addCredentials(newId, athlete, "pwhash", "salt", bokehdb)
+                if not add:
+                    error += 'failed to add user cred'
+
+                # create athlete document from entered info
+                permissions = ['']
+
+                athleteJson = {
+                    "_id" : newId,
+                    "first" : first,
+                    "last" : last,
+                    "namestring": athlete,
+                    "permissions" : permissions,
+                    "workouts" : [addedId],
+                    "piecelist": {str(addedId): athlete_piece_list},
+                    "side" : side,
+                    "active" : True,
+                    "teamId" : teamId
+                }
+                print(athleteJson)
+                # add athlete document to athlete db
+                add = addAthlete(athleteJson, bokehdb)
+                if not add:
+                    error += "failed to add athlete"
+                
+                if len(error):
+                    False
+
+                print(f'attributed to {athlete}', end='\r')
+        return True
+    else:
+        deleteWorkout(addedId, bokehdb)
+        return False
+def processPieces(unsplitId, unsplitDicts, teamId):
+    meta = queryUnsplitMeta(unsplitId, bokehdb)
+    
+    parsed = read_excel(meta['serverfilename'], 1)
+    bigPeach = PeachData(parsed)
+    
+
+    big_start_times = bigPeach.start_times
+    big_data = bigPeach.data
+    big_aper_data = bigPeach.aper_data
+    big_t0 = bigPeach.t0
+    
+    pieces = []
+    athlete_map = []
+    piece_list = []
+    
+    for unsplitdict in unsplitDicts:
+        unsplitdata = {}
+        unsplitdata['athlete_map'] = unsplitdict['athlete_map']
+        unsplitdata['date'] = bigPeach.date
+        unsplitdata['notes'] = bigPeach.misc_info
+        unsplitdata['start_times'] = big_start_times[unsplitdict['start_stroke']-1:unsplitdict['end_stroke']+1]
+        # print(unsplitdata['start_times'])
+        unsplitdata['aper_headers'] = bigPeach.aper_headers
+        unsplitdata['aper_data'] = big_aper_data[unsplitdict['start_stroke']-1:unsplitdict['end_stroke']]
+        unsplitdata['headers'] = bigPeach.headers
+        data_start = bigPeach.open_ind(unsplitdata['start_times'][0])
+        data_stop = bigPeach.open_ind(unsplitdata['start_times'][-1])
+        print(data_start)
+        print(data_stop)
+        unsplitdata['data'] = big_data[data_start:data_stop]
+        print(unsplitdata['data'])
+        unsplitdata['t0'] = int(unsplitdata['data'][0][0])
+        unsplitdata['dt'] = bigPeach.dt
+        pieces.append(PeachData.from_unsplit(unsplitdata))
+        athlete_map.append(unsplitdata['athlete_map'])
+        piece_list.append(unsplitdict['title'])
+    
+    peach_bytes = pickle.dumps(pieces)
+    
+    # TODO: better insertion, support double uploads
+    try:
+        nextId = int(getAllWorkouts(teamId, sort_by='_id', db = bokehdb)[0]['_id']) + 1 
+    except IndexError:
+        nextId = random.randint(1, 1000)
+    already_id = queryWorkoutMeta(nextId, bokehdb)
+    while already_id:
+        nextId = random.randint(10, 100000)
+        already_id = queryWorkoutMeta(nextId, bokehdb)
+    athlete_map = [unsplitDicts[i]['athlete_map'] for i in range(len(unsplitDicts))]
+     
+    
+     
+        
+    workoutDict = {
+        '_id' : nextId,
+        'title' : str(meta['serverfilename']),
+        'date' : bigPeach.date,
+        'peach_data' : Binary(peach_bytes),
+        'notes' : list(bigPeach.misc_info),
+        'athlete_list': athlete_map,
+        'piece_list': piece_list
+    }
+
+        
+    # create workout with this workoutdict, delete unsplit, return id of workout
+    addedId = addWorkout(workoutDict, teamId, bokehdb)
+    if addedId:
+        print('successfull add')
+        if valid_athletes(addedId, teamId, athlete_map): 
+            print('sucessfully attributed')
+            os.remove(meta['serverfilename'])
+            return addedId
+    
+
+
 
 
 def my_insort_left(a, x, lo=0, hi=None):
@@ -73,6 +241,29 @@ def my_gui(doc):
     
     make_piece = Button(label="Make Piece", button_type="success",height = 100, width = 100, height_policy = "fixed", margin = (0,0,500,0), css_classes =['custom_button_bokeh'])
     
+    plot = figure(
+        width=600,
+        height=600,
+        visible = False        
+    )
+
+    source = ColumnDataSource({
+    'x': [1, 2, 3],
+    'y': [4, 5, 6],
+    })
+    cr = plot.circle(
+        x='x', y='y',
+        source=source, size=10, color="navy", alpha=0.5
+    )
+
+    callback = CustomJS(args=dict(source=source), code="""
+        console.log('This code will be overwritten')
+    """)
+    cr.glyph.js_on_change('size', callback)
+    
+    
+    
+    
     def toggleRemoveCallback(attr):
         rootLayout = doc.get_model_by_name('rootLayout')
         listOfSubLayouts = rootLayout.children[-2].children.copy()
@@ -90,6 +281,7 @@ def my_gui(doc):
 
 
     def toggleConfirmCallback(attr):
+        confirm_button.disabled=True
         rootLayout = doc.get_model_by_name('rootLayout')
         listOfSubLayouts = rootLayout.children[-2].children.copy()
         listOfSubLayouts = [x[0] for x in listOfSubLayouts]
@@ -97,20 +289,32 @@ def my_gui(doc):
         for slitem in listOfSubLayouts:
             item = slitem._property_values['tabs'][1]._property_values['child']._property_values['children']
             retDict = {}
+            retDict['start_stroke'], retDict['end_stroke'] = int(item[0].name.split(',')[0]), int(item[0].name.split(',')[1])
             retDict['title'] = item[1].value
-            retDict['athletemap'] =  [x[0].value for x in item[2]._property_values['children']]
+            retDict['athlete_map'] =  [x[0].value for x in item[2]._property_values['children']]
             pieceArr.append(retDict)
         print(pieceArr)
-        about()
+        addedId = processPieces(unsplitId, pieceArr, str(int(args.get('teamId')[0])))
+        
+        js_code = f"""
+                console.log('Hello!');
+                window.location.replace("../workout?w={addedId}");
+            """
+        callback.code = js_code  # update js code
+        cr.glyph.size += 1       # trigger the javascript code
+
 
 
     def toggleMakeCallback(attr):
         # Get the layout object added to the documents root
+        crop_start = int(box.left)
+        crop_end = int(box.right)
+        if crop_end - crop_start <1:
+            return
         rootLayout = doc.get_model_by_name('rootLayout')
         listOfSubLayouts = rootLayout.children[-2].children.copy()
 
-        crop_start = int(box.left)
-        crop_end = int(box.right)
+
 
         timesecs, timemins = convertMillis(elite.start_times[crop_end]-elite.start_times[crop_start])
 
@@ -181,7 +385,7 @@ def my_gui(doc):
     # Layout
     p2.add_layout(box)
     
-    rootLayout = layout(p1, p2, row(spacer_edit,rslider, make_piece, name = 'slider,-1,0'), row(Spacer(height = 5000)), name='rootLayout', sizing_mode="scale_both")
+    rootLayout = layout(p1, p2, row(spacer_edit,rslider, make_piece, plot, name = 'slider,-1,0'), row(Spacer(height = 5000)), name='rootLayout', sizing_mode="scale_both")
     mainLayout = gridplot(children = [], ncols=2)
     rootLayout.children.append(mainLayout)
     confirm_button = Button(label="Confirm Pieces Creation", button_type="success", width_policy='max',

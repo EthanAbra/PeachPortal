@@ -186,13 +186,14 @@ def write_complete(data):
         return False, data['serverfilename']
 
     success, workout = xlsxReadUnsplit(data['serverfilename'], teamId)
-    os.remove(data['serverfilename'])
 
     if not success:
+        os.remove(data['serverfilename'])
         return False, data['serverfilename']
 
     addedId = addUnsplit(workout, teamId, data['serverfilename'])
     if not addedId:
+        os.remove(data['serverfilename'])
         return False, data['serverfilename']
     else:
         print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
