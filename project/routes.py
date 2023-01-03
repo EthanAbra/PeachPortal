@@ -327,6 +327,7 @@ def overallView(internalId= None):
             background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
 
     ax[-1].add_layout(label)
+    ax[-1].legend.click_policy="hide"
 
 
 
@@ -567,6 +568,10 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
         elite.get_average_aper_data(one_split)[121+seat_num]))
 
 
+    ax[1].legend.click_policy = "hide"
+    bx[1].legend.click_policy = "hide"
+    cx[1].legend.click_policy = "hide"
+    cx[0].legend.click_policy = "hide"
 
     my_grid = grid([
         [ax[0],ax[1]],
