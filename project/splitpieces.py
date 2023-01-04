@@ -131,13 +131,13 @@ def processPieces(unsplitId, unsplitDicts, teamId):
         unsplitdata['athlete_map'] = unsplitdict['athlete_map']
         unsplitdata['date'] = bigPeach.date
         unsplitdata['notes'] = bigPeach.misc_info
-        unsplitdata['start_times'] = big_start_times[unsplitdict['start_stroke']-1:unsplitdict['end_stroke']+1]
+        unsplitdata['start_times'] = big_start_times[unsplitdict['start_stroke']-1:unsplitdict['end_stroke']]
         # print(unsplitdata['start_times'])
         unsplitdata['aper_headers'] = bigPeach.aper_headers
         unsplitdata['aper_data'] = big_aper_data[unsplitdict['start_stroke']-1:unsplitdict['end_stroke']]
         unsplitdata['headers'] = bigPeach.headers
         data_start = bigPeach.open_ind(unsplitdata['start_times'][0])
-        data_stop = bigPeach.open_ind(unsplitdata['start_times'][-1])
+        data_stop = bigPeach.open_ind(big_start_times[unsplitdict['end_stroke']])
         print(data_start)
         print(data_stop)
         unsplitdata['data'] = big_data[data_start:data_stop]

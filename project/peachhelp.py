@@ -16,6 +16,13 @@ def posMult(num):
         return -1
 
 def double_dip_module(theta3, thetadot3):
+    index_min_angle = min(range(len(theta3)), key=theta3.__getitem__)
+
+    index_max_angle = index_min_angle
+    while thetadot3[index_max_angle] > 0:
+        index_max_angle +=1
+
+    resampled_drive_angles = index_max_angle-index_min_angle
     slopes = []
     for idx in range(index_min_angle + resampled_drive_angles//8,index_max_angle):
         slopes += [thetadot3[idx]-thetadot3[idx-1]]
@@ -55,44 +62,48 @@ def double_dip_module(theta3, thetadot3):
         
     return coords
 
-def workModule():
+def workModule(theta3, thetadot3):
+
+    time_resamp = np.linspace(0, 1, len(theta3)+1)[:-1]
+    index_min_angle = min(range(len(theta3)), key=theta3.__getitem__)
+
+    index_max_angle = index_min_angle
+    while thetadot3[index_max_angle] > 0:
+        index_max_angle +=1
+    drive_y_old = thetadot3[index_min_angle:index_max_angle]
+
+    drive_time_old = time_resamp[index_min_angle:index_max_angle]
     pct_50 = len(drive_time_old)//2
+    
     first_half = trapz(drive_y_old[:pct_50], drive_time_old[:pct_50])/100
     second_half = trapz(drive_y_old[pct_50:], drive_time_old[pct_50:])/100
     return (first_half, second_half)
     
 
-def helperMath(theta3, thetadot3, time_resamp):
+def helperMath(theta3, thetadot3):
 
     retDict = collections.defaultdict()
-    global index_min_angle
-    global index_max_force
-    global index_max_angle
-    global resampled_drive_angles
-    global drive_y_old
-    global drive_x_old
-    global drive_time_old
 
     index_min_angle = min(range(len(theta3)), key=theta3.__getitem__)
-    index_max_force = max(range(len(thetadot3)), key=thetadot3.__getitem__)
+
+    index_max_angle = index_min_angle
+    while thetadot3[index_max_angle] > 0:
+        index_max_angle +=1
+
+
+    retDict['double_dip_coords'] = double_dip_module(theta3, thetadot3)
+    retDict['work_first_half'], retDict['work_second_half'] = workModule(theta3, thetadot3)
+    return retDict
+
+
+def ideal_stroke_module(theta3, thetadot3):
+    index_min_angle = min(range(len(theta3)), key=theta3.__getitem__)
 
     index_max_angle = index_min_angle
     while thetadot3[index_max_angle] > 0:
         index_max_angle +=1
 
     resampled_drive_angles = index_max_angle-index_min_angle
-    max_force_pct = (index_max_force-index_min_angle)/resampled_drive_angles
-    drive_y_old = thetadot3[index_min_angle:index_max_angle]
-    drive_x_old = theta3[index_min_angle:index_max_angle]
-    drive_time_old = time_resamp[index_min_angle:index_max_angle]
-
-    retDict['max_force_pct'] = max_force_pct
-    retDict['double_dip_coords'] = double_dip_module(theta3, thetadot3)
-    retDict['work_first_half'], retDict['work_second_half'] = workModule()
-    return retDict
-
-
-def ideal_stroke_module(theta3, thetadot3):
     stroke_dict = collections.defaultdict()
     min_angle = theta3[index_min_angle]
     max_angle = theta3[index_max_angle]
@@ -178,7 +189,7 @@ def svd_module(elite, npts, chosen_seat=None, chosen_range = None):
         numstrokes = end-start +1
     else:
         numstrokes = elite.numstrokes
-    if chosen_seat:
+    if chosen_seat is not None:
         numseats = 1
         cols = [chosen_seat+1, chosen_seat+9, chosen_seat+17]
         snapshots3 = np.zeros((len(cols)*npts, numstrokes))
@@ -254,7 +265,7 @@ def plot_single(vec, ax, label=None, color = "#084594"):
     thetadot = vec[1::3]
     thetaq = vec[2::3]
 
-    mathDict = helperMath(theta, thetadot, t)
+    mathDict = helperMath(theta, thetadot)
 
     ideal_stroke = ideal_stroke_module(theta, thetadot)
 
@@ -386,11 +397,10 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
 
     coordinates = []
     annot = None
-
+    sloppy_bladework = False
     if dbl_dip_xs:
         coordinates = list(zip(dbl_dip_xs, dbl_dip_ys))
-
-        print(coordinates)
+        sloppy_bladework = True
 
         plotxs=[coordinates[0][0], coordinates[0][0], coordinates[1][0], coordinates[1][0]]
         plotys=[coordinates[0][1]-5, coordinates[0][1]+2, coordinates[1][1]+2, coordinates[1][1]-5]
@@ -420,7 +430,7 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
     span_label = Label(
         x=t[start_70]-npts/2000,
         y=min(thetadot),
-        x_units='data', y_units = 'data', 
+        x_units='data', y_units = 'data', text_color = "blue",
         text='70%\nPeak\nForce')
 
     ax[0].add_layout(span_label)
@@ -433,20 +443,26 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
     span_label = Label(
         x=t[end_70]-npts/2000,
         y=min(thetadot),
-        x_units='data', y_units = 'data', 
+        x_units='data', y_units = 'data', text_color = "blue", 
         text='70%\nPeak\nForce')
 
     ax[0].add_layout(span_label)
 
-    ax[0].line(x = [t[start_70],t[end_70]], y = [thetadot[start_70], thetadot[end_70]], line_color = "red", line_dash = "dashed", line_width = 3)
+    span_70_pct = Span(location=t[idx_min_angle + round((idx_max_angle-idx_min_angle)*.7)],
+                    dimension='height', line_color='pink',
+                    line_dash='dashed', line_width=3)
+
+    ax[0].add_layout(span_70_pct)
+
 
     span_label = Label(
-        x=t[start_70 + (end_70-start_70)//2]-npts/2000,
-        y=thetadot[end_70],
-        x_units='data', y_units = 'data', 
-        text='Time\n@70%')
+        x=t[idx_min_angle + round((idx_max_angle-idx_min_angle)*.7)]-npts/2000,
+        y=max(thetadot)-10,
+        x_units='data', y_units = 'data', text_color = "pink", 
+        text='70%\nDrive\nLength')
 
     ax[0].add_layout(span_label)
+
 
 
     drive_start = Span(location=t[idx_min_angle],
@@ -456,7 +472,7 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
     span_label = Label(
         x=t[idx_min_angle]-npts/2000,
         y=min(thetadot),
-        x_units='data', y_units = 'data', 
+        x_units='data', y_units = 'data', text_color = "green",
         text='Catch')
 
     ax[0].add_layout(span_label)
@@ -468,7 +484,7 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
     span_label = Label(
         x=t[idx_max_angle]-npts/2000,
         y=min(thetadot),
-        x_units='data', y_units = 'data', 
+        x_units='data', y_units = 'data', text_color = "green",
         text='Finish')
 
     ax[0].add_layout(span_label)
@@ -477,6 +493,10 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
     ax[0].add_layout(span_start_70)
     ax[0].add_layout(span_end_70)
 
+    tail_off = True
+    if t[idx_min_angle + round((idx_max_angle-idx_min_angle)*.7)] < t[start_70]:
+        tail_off = False
+    
 
 
 
@@ -497,17 +517,17 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
     if annot:
         ax[0].add_layout(annot)
         ax[0].add_layout(lab)
-
+        
     if label2:
-        ax[1].line(x = t, y = theta, legend_label = label2, line_color = color, line_join = 'bevel', line_width = 2)
-        ax[1].legend.background_fill_alpha = 0.2
-        ax[1].legend.location = "top_left"
-        ax[1].legend.label_text_font_size = '8pt'
-        ax[1].legend.spacing = 2
-        ax[1].legend.title = legend_title
+        ax[2].line(x = t, y = theta, legend_label = label2, line_color = color, line_join = 'bevel', line_width = 2)
+        ax[2].legend.background_fill_alpha = 0.2
+        ax[2].legend.location = "top_left"
+        ax[2].legend.label_text_font_size = '8pt'
+        ax[2].legend.spacing = 2
+        ax[2].legend.title = legend_title
 
     else:
-        ax[1].line(x = t, y = theta, line_color = color, line_join = 'bevel', line_width = 2)
+        ax[2].line(x = t, y = theta, line_color = color, line_join = 'bevel', line_width = 2)
 
     span_label = Label(
         x=t[idx_min_angle]-npts/2000,
@@ -515,7 +535,7 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
         x_units='data', y_units = 'data', 
         text='Catch')
 
-    ax[1].add_layout(span_label)
+    ax[2].add_layout(span_label)
 
     span_label = Label(
         x=t[idx_max_angle]-npts/2000,
@@ -523,11 +543,12 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
         x_units='data', y_units = 'data', 
         text='Finish')
 
-    ax[1].add_layout(span_label)
+    ax[2].add_layout(span_label)
 
-    ax[1].add_layout(drive_start)
-    ax[1].add_layout(drive_end)
+    ax[2].add_layout(drive_start)
+    ax[2].add_layout(drive_end)
 
-    ax[1].xaxis.axis_label='Time(Normalized)'
-    ax[1].yaxis.axis_label='Gate Angle'
+    ax[2].xaxis.axis_label='Time(Normalized)'
+    ax[2].yaxis.axis_label='Gate Angle'
 
+    return sloppy_bladework, tail_off

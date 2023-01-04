@@ -1,5 +1,5 @@
 from polyfile.magic import MagicMatcher
-from bokeh.models import Label, LabelSet, PolyAnnotation
+from bokeh.models import Label, LabelSet, PolyAnnotation, Text, Range1d, ColumnDataSource
 import seaborn as sns
 from bokeh.layouts import layout, grid, gridplot, row
 from bokeh.plotting import show
@@ -481,9 +481,40 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
     cx[1] = figure(background_fill_color="#fafafa")
 
 
-    dx = [None]*2
+    dx = [None]*3
     dx[0] = figure(background_fill_color="#fafafa")
-    dx[1] = figure(background_fill_color="#fafafa")
+    dx[1] = figure(background_fill_color="#ffffff", x_range = Range1d(0,100), y_range = Range1d(0,100), tools =[])
+    dx[2] = figure(background_fill_color="#fafafa")
+
+    dx[1].xaxis.major_tick_line_color = None  # turn off x-axis major ticks
+    dx[1].xaxis.minor_tick_line_color = None  # turn off x-axis minor ticks
+    dx[1].yaxis.major_tick_line_color = None  # turn off y-axis major ticks
+    dx[1].yaxis.minor_tick_line_color = None  # turn off y-axis minor ticks
+
+    dx[1].xaxis.major_label_text_font_size = '0pt'  # preferred method for removing tick labels
+    dx[1].yaxis.major_label_text_font_size = '0pt'  # preferred method for removing tick labels
+
+    dx[1].outline_line_width = 7
+    dx[1].outline_line_alpha = 0.3
+    dx[1].outline_line_color = "navy"
+
+    dx[1].grid.visible = False
+
+    dx[1].xaxis.visible = False # preferred method for removing tick labels
+    dx[1].yaxis.visible = False 
+
+    x = [39]
+    y = [90]
+    text = ["Analysis"]
+
+    analysis_pts = []
+
+    source = ColumnDataSource(dict(x=x, y=y, text = text))    
+
+    title  = Text(x='x', y='y', text='text', text_color = '#00008b', text_font_size = "32px")
+
+    dx[1].add_glyph(source, title)
+
 
 
     # stroke_nums = list(range(1, elite.numstrokes+1))
@@ -507,13 +538,24 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
         background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
     ax[0].add_layout(label)
 
+    max_force_pct = average_aper_data[121+seat_num]
 
+    early_build = True
+
+    if max_force_pct <= 33:
+        analysis_pts.append("Max Force Percentage is too early.")
+    elif max_force_pct > 40:
+        analysis_pts.append("Max Force Percentage is too late")
+        analysis_pts.append("Try springing off the footplate at the catch")
+        early_build = False
+    else:
+        analysis_pts.append("Max Force Percentage looks good!!.")
 
     svdDict = peachhelp.svd_module(elite, 100, seat_num)
     
     peachhelp.plot_vector(svdDict['mean'], label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=bx)
 
-    peachhelp.plot_degree_velocity(svdDict['mean'], label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=dx)
+    sloppy_bladework, tail_off = peachhelp.plot_degree_velocity(svdDict['mean'], label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=dx)
 
     boat_svd = peachhelp.svd_module(elite, 100)
 
@@ -551,7 +593,68 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
         bx[0].add_layout(polygon)
         bx[0].add_layout(polylabel)
 
-    # print(mathDict)
+
+    print(mathDict['work_first_half'])
+    print(mathDict['work_second_half'])
+
+
+
+    if early_build and coordinates and tail_off:
+        analysis_pts.append("You are likely using too much body at the front end")
+        analysis_pts.append("Try a quicker leg drive and push through the heels")
+    elif early_build and tail_off:
+        analysis_pts.append("Try to leverage your body better.")
+        analysis_pts.append("Fully extend your hips late in the drive")
+        analysis_pts.append("Gather more bend at the catch.")
+        analysis_pts.append("Connect through the foot stretchers with your heels")
+    elif early_build and not tail_off:
+        analysis_pts.append("Nice work quickly acheiving and maintaining force!")
+
+    sudden_accel = False
+
+    late_placement = False
+
+    if seat_num < 7:
+        look_ahead_avg = np.mean(average_aper_data[41+seat_num+1:49])/200
+        if look_ahead_avg-average_aper_data[41+seat_num] <= .01 or average_aper_data[41+7]- average_aper_data[41+seat_num] <= .01:
+            late_placement = True
+
+
+
+
+    late_prep = sudden_accel and late_placement
+
+
+
+
+    if not early_build and late_prep:
+        analysis_pts.append("You are likely lunging at the catch")
+        analysis_pts.append("Try to prepare the body earlier.") 
+        analysis_pts.append("Catch through your fingertips, not shoulders")
+    if not early_build and not late_prep:
+        analysis_pts.append("Get those legs down faster! ")
+        analysis_pts.append("Try to focus on changing direction quicker.")
+
+
+    if sloppy_bladework:
+        analysis_pts.append("Your blade is entering before accelerating to stern")
+        analysis_pts.append("Try not to \"pull\" the handle at the catch.")
+        analysis_pts.append("Relax and elongate your upper body")
+
+
+    x = [5]*len(analysis_pts)
+
+    y = list(np.linspace(5,85,len(analysis_pts)))[::-1]
+
+
+
+
+    source = ColumnDataSource(dict(x=x, y=y, text = analysis_pts))    
+
+    title  = Text(x='x', y='y', text='text', text_color = '#00008b', text_font_size = "20px")
+
+    dx[1].add_glyph(source, title)
+
 
     split = elite.get_rating_chunks()
 
@@ -574,10 +677,9 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
     cx[0].legend.click_policy = "hide"
 
     my_grid = grid([
-        [ax[0],ax[1]],
-        [bx[0], bx[1]],
-        [cx[0], cx[1]],
-        [dx[0], dx[1]]
+        [ax[0], ax[1], bx[0]],
+        [bx[1], cx[0], cx[1]],
+        [dx[0], dx[1], dx[2]]
     ])
 
     my_grid.sizing_mode = "scale_both"
