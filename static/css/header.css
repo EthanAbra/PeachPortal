@@ -1,0 +1,65 @@
+section {
+    width: 100%;
+    z-index:-1;
+    height:100%;
+  }
+  
+  
+  section .wave {
+    position: absolute;
+    width: 100%;
+    /*height from the svg file*/
+    height: 100%;
+    top: 0;
+    left: 0;
+    background: url("wave.svg");
+    transform: scaleY(-1);
+    animation: waves 10s linear infinite;
+  }
+  
+  section .wave1 {
+    content:'';
+    width: 100%;
+    height: 100%;
+    background: url("wave.svg");
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.4;
+    transform: scaleY(-1);
+    animation: waves-reverse 10s linear infinite;
+  }
+  
+  section .wave2 {
+    content:'';
+    width: 100%;
+    height: 100%;
+    background: url("wave.svg");
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.6;
+    animation-delay: -5s;
+    transform: scaleY(-1);
+    animation: waves 20s linear infinite;
+  }
+  
+  
+  @keyframes waves {
+    0% {
+      background-position: 0;
+    }
+    100% {
+      /* from width of the svg file */
+      background-position: 1600px;
+    }
+  }
+  
+  @keyframes waves-reverse {
+    0% {
+      background-position: 1600px;
+    }
+    100% {
+      background-position: 0;
+    }
+  }
