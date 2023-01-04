@@ -68,22 +68,17 @@ def xlsxRead(filename, teamId):
 
     peach_bytes = pickle.dumps(data)
 
-    try:
-        nextId = int(getAllWorkouts(teamId, sort_by='_id')[0]['_id']) + 1 
-    except IndexError:
-        nextId = random.randint(1, 1000)
+
+    nextId = random.randint(1, 2**24)
     already_id = queryWorkoutMeta(nextId)
     while already_id:
-        nextId = random.randint(10, 100000)
+        nextId = random.randint(1, 2**24)
         already_id = queryWorkoutMeta(nextId)
      
 
 
-    #TODO: ATHLETE LIST MULTI-DIMENSIONAL
     athlete_map = [list(data[0].get_athletes())]
-    #print(piece_list[0])
     for datIdx, datum in enumerate(data[1:]):
-        #print(piece_list[datIdx+1])
         if len(list(datum.get_athletes()))<len(athlete_map[-1]):
             athlete_map.append(athlete_map[-1])
         else:
@@ -119,14 +114,13 @@ def xlsxReadUnsplit(filename, teamId):
 
     peach_bytes = pickle.dumps(data)
 
-    try:
-        nextId = int(getAllUnsplits(teamId, sort_by='_id')[0]['_id']) + 1 
-    except IndexError:
-        nextId = random.randint(1, 1000)
-    already_id = queryUnsplitMeta(nextId)
+
+    nextId = random.randint(1, 2**24)
+    already_id = queryWorkoutMeta(nextId)
     while already_id:
-        nextId = random.randint(10, 100000)
-        already_id = queryUnsplitMeta(nextId)
+        nextId = random.randint(1, 2**24)
+        already_id = queryWorkoutMeta(nextId)
+     
 
     workoutDict = {
         '_id' : nextId,
