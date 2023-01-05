@@ -85,7 +85,6 @@ def workouts():
     athlete = queryAthlete(user._id)
 
     workouts = getAllWorkouts(athlete['teamId'])
-    unsplitworkouts = []
     if 'cox' in athlete['permissions'] or 'admin' in athlete['permissions']:
         unsplitworkouts = list(getAllUnsplits(athlete['teamId']))
         delPerm = True
@@ -97,11 +96,14 @@ def workouts():
         if 'cox' in athlete['permissions'] or athlete['first'] + " " + athlete['last'] in queryWorkoutMeta(workout['_id'])['athlete_list']:
             renderlist += [workout]
 
+    render_unsplit = []
     for workout in unsplitworkouts:
         if not os.path.exists(workout['serverfilename']):
             deleteUnsplit(workout['_id'])
             unsplitworkouts.remove(workout)
-    html = render_template('workouts.html' ,workouts=renderlist, unsplitworkouts = unsplitworkouts, delPerm=delPerm, athId=athlete['_id'], athlete_name = athlete['first'] + " " + athlete['last'])
+        else:
+            render_unsplit.append(workout)
+    html = render_template('workouts.html' ,workouts=renderlist, unsplitworkouts = render_unsplit, delPerm=delPerm, athId=athlete['_id'], athlete_name = athlete['first'] + " " + athlete['last'])
     return make_response(html)
 
 @main_bp.route('/deleteWorkout', methods=['GET', 'POST'])
