@@ -50,11 +50,32 @@ class PeachData():
             return e
 
 
+    @classmethod
+    def from_unsplit(cls, unsplitdata):
+        obj = cls.__new__(cls)  # Does not call __init__
+        super(PeachData, obj).__init__()  # Don't forget to call any polymorphic base class initializers
+        obj.athlete_map = unsplitdata['athlete_map']
+        obj.date = unsplitdata['date']
+        obj.misc_info = unsplitdata['notes']
+        obj.start_times = unsplitdata['start_times']
+        obj.aper_headers = unsplitdata['aper_headers']
+        obj.aper_data = unsplitdata['aper_data']
+        obj.headers = unsplitdata['headers']
+        obj.data = unsplitdata['data']
+        obj.t0 = unsplitdata['t0']
+        obj.dt = unsplitdata['dt']
+        return obj
+
+
     @property
     def numstrokes(self):
         return len(self.start_times) - 1
 
     def __ind(self, time):
+        return (time - self.t0) // self.dt
+    
+    
+    def open_ind(self, time):
         return (time - self.t0) // self.dt
 
     def stroke(self, i, cols, debug=False):

@@ -1,7 +1,7 @@
 from project import create_app, socketio
 
 from project.database import queryAthlete, addWorkout, deleteWorkout, queryAthleteByName, addWorkoutToAthlete
-from project.database import getCredentialsbyId, addCredentials, addAthlete, getAllAthletes
+from project.database import getCredentialsbyId, addCredentials, addAthlete, getAllAthletes, addUnsplit
 from flask import Flask, request, make_response, redirect, url_for, Response, current_app
 from flask import render_template, Markup, flash, session, jsonify, abort
 from flask_login import LoginManager, current_user
@@ -11,7 +11,7 @@ from polyfile.magic import MagicMatcher
 import random
 import bcrypt
 from project import peachhelp
-from project.xlsxMethods import xlsxRead
+from project.xlsxMethods import xlsxRead, xlsxReadUnsplit
 import os
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
@@ -21,9 +21,6 @@ from fuzzywuzzy import process
 #-----------------------------------------------------------------------
 
 
-
-
-# print('capp called')
 @socketio.on('start-transfer')
 def start_transfer(filename, size):
     print("receivd start transfer")
@@ -53,7 +50,7 @@ def write_chunk(filename, offset, data):
 
 @socketio.on('write-complete')
 def write_complete(data):
-    print(data)
+    print("wrcomp")
 
     user = current_user
     # print(user)
@@ -89,9 +86,23 @@ def write_complete(data):
     
 
 @socketio.on('valid-athletes')
-def valid_athletes(addedId, teamId, athleteList):
-    if len(athleteList) :
-        for ath_idx, athlete in enumerate(athleteList):
+def valid_athletes(addedId, teamId, athleteMap):
+    athDict = {}
+    for pieceIdx in range(len(athleteMap)):
+        for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
+            in_dict = athDict.get(piece_athlete,None)
+            if in_dict is not None:
+                pl, side = in_dict
+                pl.append(pieceIdx)
+                athDict[piece_athlete] = (pl,side)
+            else:
+                side = 'port' if paidx%2 != 0 else 'starboard'
+                athDict[piece_athlete] = ([pieceIdx], side)
+                
+    if len(athDict) :
+        for athlete, athleteTuple in athDict.items():
+            print(athlete)
+            athlete_piece_list, side = athleteTuple
             if len(athlete.split())==1:
                 first, last = athlete[0], athlete[0]
             else:
@@ -109,7 +120,7 @@ def valid_athletes(addedId, teamId, athleteList):
             if athlete_query:
                 athleteId = athlete_query['_id']
                 print(f'attributed to {athlete}', end='\r')
-                edited = addWorkoutToAthlete(athleteId, addedId)
+                edited = addWorkoutToAthlete(athleteId, addedId, athlete_piece_list)
             else: # we need to create a new athlete account for this individual
 
                 error = ''
@@ -126,11 +137,6 @@ def valid_athletes(addedId, teamId, athleteList):
 
                 # create athlete document from entered info
                 permissions = ['']
-                # if 'admin' in request.form.keys():
-                #     permissions.append('admin')
-                side = 'starboard'
-                if ath_idx % 2:
-                    side = 'port'
 
                 athleteJson = {
                     "_id" : newId,
@@ -139,10 +145,12 @@ def valid_athletes(addedId, teamId, athleteList):
                     "namestring": athlete,
                     "permissions" : permissions,
                     "workouts" : [addedId],
+                    "piecelist": {str(addedId): athlete_piece_list},
                     "side" : side,
                     "active" : True,
                     "teamId" : teamId
                 }
+                print(athleteJson)
                 # add athlete document to athlete db
                 add = addAthlete(athleteJson)
                 if not add:
@@ -156,6 +164,40 @@ def valid_athletes(addedId, teamId, athleteList):
     else:
         deleteWorkout(addedId)
         return False
+    
+@socketio.on('write-complete-unsplit')
+def write_complete(data):
+    print("wrcompunsplit")
+    user = current_user
+    # print(user)
+    athleteId = user._id
+    athlete = queryAthlete(athleteId)
+    teamId = athlete['teamId']
+
+    def mimewrap(serverfilename):
+        for match in MagicMatcher.DEFAULT_INSTANCE.match(serverfilename):
+            print(f"Match string: {match!s}")
+            if str(match).startswith("Microsoft Excel 2007"):
+                return True
+
+    
+    if not mimewrap(data['serverfilename']):
+        os.remove(data['serverfilename'])
+        return False, data['serverfilename']
+
+    success, workout = xlsxReadUnsplit(data['serverfilename'], teamId)
+
+    if not success:
+        os.remove(data['serverfilename'])
+        return False, data['serverfilename']
+
+    addedId = addUnsplit(workout, teamId, data['serverfilename'])
+    if not addedId:
+        os.remove(data['serverfilename'])
+        return False, data['serverfilename']
+    else:
+        print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
+    socketio.emit('unsplit processed',{'ack':True, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename'], 'addedId': addedId, 'teamId' :teamId, 'athleteList':workout['athlete_list']})
 
 
 app = create_app(debug=True)

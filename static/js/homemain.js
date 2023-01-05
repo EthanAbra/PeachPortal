@@ -1,14 +1,15 @@
 const chunk_size = 64 * 1024;
 var files = [];
+var unsplitfiles = [];
 var socketio = io();
 // console.log(socketio)
 // file drop handling
 var dropzone = document.getElementById('dropzone');
+var dropzoneunsplit = document.getElementById('dropzoneunsplit');
+
 dropzone.ondragover = function(e) {
     e.preventDefault();
 }
-
-
 
 dropzone.ondrop = function(e) {
     e.preventDefault();
@@ -23,24 +24,40 @@ dropzone.ondrop = function(e) {
         progress.classList.add('file-progress');
         progress.classList.add('in-progress');
 
-        // messages = document.createElement('div');
-        // messages.classList.add('peach-not-processed')
-        // messages.classList.add('peach-processed')
-        // messages.classList.add('no-athletes')
-        // messages.classList.add('athletes-processed')
-
         filediv.appendChild(filename);
         filediv.appendChild(progress);
 
 
         document.getElementById('filelist').appendChild(filediv);
-        // document.getElementById('messagelist').appendChild(messages);
         files.push({
             file: e.dataTransfer.files[i],
             progress: progress,
             done: false
         });
     }
+}
+
+var upload = document.getElementById('upload');
+upload.onclick = function() {
+    if (files.length == 0)
+        alert('Drop some files above first!');
+    for (var i = 0; i < files.length; i++) {
+        socketio.emit('start-transfer', files[i].file.name, files[i].file.size, function(filename) {
+            if (!filename) {
+                // the server rejected the transfer
+                onReadError.call(this, this.file, 0, 0, 'Upload rejected by server')
+            }
+            else {
+                // the server allowed the transfer with the given filename
+                this.server_filename = filename;
+                this.unsplit = false;
+                readFileChunk(this.file, 0, chunk_size,
+                    onReadSuccess.bind(this),
+                    onReadError.bind(this));
+            }
+        }.bind(files[i]));
+    }
+    files = [];
 }
 
 // read a chunk from a file
@@ -86,11 +103,24 @@ function onReadSuccess(file, offset, length, data) {
 }
 
 function onReadComplete(file) {
-    if (file.done){
+    if (file.done && file.unsplit){
+        document.getElementById('unsplitmessagelist').innerHTML +=
+        '<div class="alert alert-warning" role="alert"> file ' + String(file.file.name) + ' received. server processing <div class="loader" id = "' + String(file.server_filename).replace(/\W/g,'_') + '" ><div class="duo duo1"><div class="dot dot-a"></div><div class="dot dot-b"></div></div><div class="duo duo2"><div class="dot dot-a"></div><div class="dot dot-b"></div> </div></div></div>';
+        socketio.emit('write-complete-unsplit', {"serverfilename": file.server_filename, "clientfilename": String(file.file.name)}); 
+    }
+    else{
         document.getElementById('messagelist').innerHTML +=
         '<div class="alert alert-warning" role="alert"> file ' + String(file.file.name) + ' received. server processing <div class="loader" id = "' + String(file.server_filename).replace(/\W/g,'_') + '" ><div class="duo duo1"><div class="dot dot-a"></div><div class="dot dot-b"></div></div><div class="duo duo2"><div class="dot dot-a"></div><div class="dot dot-b"></div> </div></div></div>';
         socketio.emit('write-complete', {"serverfilename": file.server_filename, "clientfilename": String(file.file.name)}); 
-    }//.bind(this);
+    }
+}
+
+// read error callback
+function onReadError(file, offset, length, error) {
+    console.log('Upload error for ' + file.name + ': ' + error);
+    this.progress.classList.add('error');
+    this.progress.classList.remove('in-progress');    
+    this.done = true;
 }
 
 
@@ -135,22 +165,70 @@ function onProcessedPeach(clientfilename, addedId, teamId, athleteList){
 
 
 
+socketio.on('unsplit processed', function(data) {
+    // console.log('opp')
+    var x = document.getElementById(data.serverfilename.replace(/\W/g,'_'));
+    if (x.style.display === "none") {
+        x.style.display = "block";
+    } else {
+        x.style.display = "none";
+    }
+    if(!data.ack){
+        document.getElementById('unsplitmessagelist').innerHTML +=
+        '<div class="alert alert-danger" role="alert"> malformed peach data in file ' + String(data.clientfilename) + ' </div>';
+        return
+    }
+    document.getElementById('unsplitmessagelist').innerHTML += 
+    '<div class="alert alert-success" role="alert"> peach processed in file ' + String(data.clientfilename) + '</div>';
+    onProcessedUnsplit(data.clientfilename, data.addedId, data.teamId, data.athleteList)
+})
 
-// read error callback
-function onReadError(file, offset, length, error) {
-    console.log('Upload error for ' + file.name + ': ' + error);
-    this.progress.classList.add('error');
-    this.progress.classList.remove('in-progress');    
-    this.done = true;
+function onProcessedUnsplit(clientfilename, addedId, teamId, athleteList){
+    document.getElementById('unsplitmessagelist').innerHTML += '<div class="alert alert-primary" role="alert"> Split this workout here: <a href ="../splitpieces?w=' + addedId + '">here</div>';
+    return
+}
+
+
+
+dropzoneunsplit.ondragover = function(e) {
+    e.preventDefault();
+}
+
+
+dropzoneunsplit.ondrop = function(e) {
+    e.preventDefault();
+    for(var i = 0; i < e.dataTransfer.files.length; i++) {
+
+        filediv = document.createElement('div');
+        filename = document.createElement('div');
+
+        filename.classList.add('filename');
+        filename.innerHTML = e.dataTransfer.files[i].name;
+
+        progress = document.createElement('div');
+        progress.classList.add('file-progress');
+        progress.classList.add('in-progress');
+
+        filediv.appendChild(filename);
+        filediv.appendChild(progress);
+
+
+        document.getElementById('unsplitfilelist').appendChild(filediv);
+        unsplitfiles.push({
+            file: e.dataTransfer.files[i],
+            progress: progress,
+            done: false
+        });
+    }
 }
 
 // upload button
-var upload = document.getElementById('upload');
-upload.onclick = function() {
-    if (files.length == 0)
+var unsplitupload = document.getElementById('unsplitupload');
+unsplitupload.onclick = function() {
+    if (unsplitfiles.length == 0)
         alert('Drop some files above first!');
-    for (var i = 0; i < files.length; i++) {
-        socketio.emit('start-transfer', files[i].file.name, files[i].file.size, function(filename) {
+    for (var i = 0; i < unsplitfiles.length; i++) {
+        socketio.emit('start-transfer', unsplitfiles[i].file.name, unsplitfiles[i].file.size, function(filename) {
             if (!filename) {
                 // the server rejected the transfer
                 onReadError.call(this, this.file, 0, 0, 'Upload rejected by server')
@@ -158,11 +236,12 @@ upload.onclick = function() {
             else {
                 // the server allowed the transfer with the given filename
                 this.server_filename = filename;
+                this.unsplit = true
                 readFileChunk(this.file, 0, chunk_size,
                     onReadSuccess.bind(this),
                     onReadError.bind(this));
             }
-        }.bind(files[i]));
+        }.bind(unsplitfiles[i]));
     }
-    files = [];
+    unsplitfiles = [];
 }
