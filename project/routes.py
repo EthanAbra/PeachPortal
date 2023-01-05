@@ -295,7 +295,7 @@ def overallView(internalId= None):
     for i in range(len(athleteMap[int(piece_num)])):
         ax[i] = figure(background_fill_color="#fafafa")
 
-    ax.append(figure(background_fill_color="#fafafa"))#, sizing_mode="stretch_width"))
+    ax.append(figure(background_fill_color="#fafafa", sizing_mode="stretch_width"))
 
 
     stroke_nums = list(range(1, elite.numstrokes+1))
@@ -339,7 +339,7 @@ def overallView(internalId= None):
 
     my_grid = layout([
         gridplot(children = ax[0:len(athleteMap[int(piece_num)])], ncols=4),
-        row(ax[-1], sizing_mode="stretch_width")
+        ax[-1]
     ])
 
     # my_grid.sizing_mode = "scale_both"
