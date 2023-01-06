@@ -63,7 +63,6 @@ def logout():
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
 
-    error = ''
     # on form submission
     if request.method =='POST':
         # get form inputs 
@@ -84,9 +83,9 @@ def signup():
         checkIfNewEmail = User.get_by_email(email)
         checkIfTeam = queryTeam(team)
         if checkIfNewEmail:
-            error = 'Account already exists with this email'
+            flash('Account already exists with this email')
         elif not checkIfTeam:
-            error = f'No team exists with id: {team}'
+            flash(f'No team exists with id: {team}')
         else:
             allAthletes = getAllAthletes(team)
             already_here = None
@@ -102,15 +101,16 @@ def signup():
 
                     count += editCredentialsBatch(already_here["_id"], "email", email, "pwHash", pwhash, "salt", salt)
                     if count != 3:
-                        error = 'failed to update user credentials'
-                    print(f'New user updated: {first} {last}, email: {email}, {side} side, {team} team')
-                    html = redirect('/home')
-                    return make_response(html)
+                        print('failed to update user credentials')
+                        flash('failed. please try again')
+                    else:
+                        print(f'New user updated: {first} {last}, email: {email}, {side} side, {team} team')
+                        html = redirect('/home')
+                        return make_response(html)
                 else:
-                    error = 'Account already exists for this user. Try another email'
+                    flash('Account already exists for this user. Try another email')
 
             else: 
-
                 newId = random.randint(10, 100000)
                 already_id = getCredentialsbyId(newId)
                 while already_id:
@@ -118,50 +118,46 @@ def signup():
                     already_id = getCredentialsbyId(newId)
 
                 # add the login credentials to credentials DB
-                add = User.register(email, pwhash, salt, newId)
+                add = User.register(newId, email, pwhash, salt)
 
                 if not add:
-                    error = 'failed to add user'
+                    flash('failed to add user')
+                else:
+                    # create athlete document from entered info
+                    permissions = ['']
+                    if side == 'cox':
+                        permissions.append('cox')
 
-                # create athlete document from entered info
-                permissions = ['']
-                if side == 'cox':
-                    permissions.append('cox')
-
-                # if 'admin' in request.form.keys():
-                #     permissions.append('admin')
-
-                athlete = {
-                    "_id" : newId,
-                    "first" : first,
-                    "last" : last,
-                    "namestring": first+ " " + last,
-                    "permissions" : permissions,
-                    "prs" : {
-                        "2000m" : '-1',
-                        "6000m" : '-1'
-                    },
-                    "workouts" : [],
-                    "side" : side,
-                    "class" : classYr,
-                    "active" : True,
-                    "teamId" : team
-                }
-                # add athlete document to athlete db
-                add = addAthlete(athlete)
-                if not add:
-                    error = "failed to add user"
-
-
-                print(f'New user registered: {first} {last}, email: {email}, {side} side, {team} team')
-
-                html = redirect('/home')
-                return make_response(html)
+                    athlete = {
+                        "_id" : newId,
+                        "first" : first,
+                        "last" : last,
+                        "namestring": first+ " " + last,
+                        "permissions" : permissions,
+                        "prs" : {
+                            "2000m" : '-1',
+                            "6000m" : '-1'
+                        },
+                        "workouts" : [],
+                        "side" : side,
+                        "class" : classYr,
+                        "active" : True,
+                        "teamId" : team
+                    }
+                    
+                    # add athlete document to athlete db
+                    add = addAthlete(athlete)
+                    if not add:
+                        flash("failed to add user")
+                    else:
+                        print(f'New user registered: {first} {last}, email: {email}, {side} side, {team} team')
+                        html = redirect('/home')
+                        return make_response(html)
     teamId = request.args.get('t')
     if teamId:
-        html = render_template('signup.html', newTeam=True, error=error, teamId=teamId)
+        html = render_template('signup.html', newTeam=True, teamId=teamId)
     else:
-        html = render_template('signup.html', newTeam=False, error=error)
+        html = render_template('signup.html', newTeam=False)
     return make_response(html)
 
 
