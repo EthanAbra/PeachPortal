@@ -63,7 +63,7 @@ def create_app(debug = False):
 
             asyncio.set_event_loop(asyncio.new_event_loop())
 
-            bokeh_tornado = BokehTornado({'/bkapp': bkapp}, extra_websocket_origins=["localhost:8000"])
+            bokeh_tornado = BokehTornado({'/bkapp': bkapp}, extra_websocket_origins=["localhost", "peachportal.azurewebsites.net"])
             bokeh_http = HTTPServer(bokeh_tornado)
             bokeh_http.add_sockets(sockets)
 
