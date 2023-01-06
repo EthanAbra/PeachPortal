@@ -39,8 +39,6 @@ def login():
         if User.login_valid(email, password):
             loguser = User(find_user["_id"], find_user["email"], find_user["pwHash"], find_user["salt"])
             login_user(loguser, force=True)
-            flash('You have been logged in!', 'success')
-            # res = render_template('home.html')
             print(f'{email} logged in, new session')
             # print(res)
             return redirect('/home')
