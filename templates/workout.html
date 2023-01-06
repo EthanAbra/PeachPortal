@@ -35,7 +35,7 @@
                     </li>
                     {% for num in num_seats%}
                     <li class="nav-item">
-                        <button class="btn btn-outline-primary" hx-post= "/workoutseat?w={{workout['_id']}}&s={{num}}&piece=0" hx-target = "#raw">Seat {{num+1}} Details</button> 
+                        <button class="btn btn-outline-primary" hx-post= "/workoutseat?w={{workout['_id']}}&s={{num}}&piece=0&ad=1" hx-target = "#raw">Seat {{num+1}} Details</button> 
                     </li>
                     {%endfor%}
                     </ul>
@@ -62,21 +62,21 @@
                     {% if isAdmin %}
                     {% if loop.index0 == 0 %}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutoverall?w={{workout['_id']}}&piece={{ loop.index0 }}" hx-target = "#raw">{{piece}}</button> 
+                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutoverall?w={{workout['_id']}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%else%}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info" hx-post= "/workoutoverall?w={{workout['_id']}}&piece={{ loop.index0 }}" hx-target = "#raw">{{piece}}</button> 
+                        <button class="btn btn-outline-info" hx-post= "/workoutoverall?w={{workout['_id']}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%endif%}
                     {%else%}
                     {% if loop.index0 == 0 %}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ loop.index0 }}" hx-target = "#raw">{{piece}}</button> 
+                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%else%}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ loop.index0 }}" hx-target = "#raw">{{piece}}</button> 
+                        <button class="btn btn-outline-info" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%endif%}
                     {%endif%}

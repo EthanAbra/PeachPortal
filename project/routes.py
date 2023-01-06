@@ -77,23 +77,20 @@ def home():
 @login_required
 def workouts():
     user = current_user
-    print(user)
-
     if user.is_anonymous():
         return redirect('/login')
 
     athlete = queryAthlete(user._id)
-
-    workouts = getAllWorkouts(athlete['teamId'])
+    unsplitworkouts = []
+    workouts = list(getAllWorkouts(athlete['teamId']))
     if 'cox' in athlete['permissions'] or 'admin' in athlete['permissions']:
         unsplitworkouts = list(getAllUnsplits(athlete['teamId']))
         delPerm = True
     else:
         delPerm = False
-
     renderlist = []
     for workout in workouts:
-        if 'cox' in athlete['permissions'] or athlete['first'] + " " + athlete['last'] in queryWorkoutMeta(workout['_id'])['athlete_list']:
+        if 'cox' in athlete['permissions'] or any(athlete['namestring'] in sublist for sublist in workout['athlete_list']):
             renderlist += [workout]
 
     render_unsplit = []
@@ -193,15 +190,18 @@ def workout():
     meta = queryWorkoutMeta(workoutId)
 
     if not meta:
+        print('no meta found')
         return redirect('/workouts')
     
     if meta['teamId'] != athlete['teamId']:
+        print(f"Cross-team access attempted by user {athlete['first']} {athlete['last']} on team:{athlete['teamId']}")
         return redirect('/workouts')
 
-    if not isAdmin and workoutId not in athlete['workouts']:
+    if not isAdmin and int(workoutId) not in athlete['workouts']:
+        print(f"Unauthorized access attempted by user {athlete['first']} {athlete['last']} on team:{athlete['teamId']}")
         return redirect('/workouts')
 
-    piece_list = meta['piece_list']
+
 
 
     colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
@@ -212,19 +212,23 @@ def workout():
     seatnum = 0
     if isAdmin:
         startingview = overallView(workoutId)
+        piece_list = list(zip(meta['piece_list'], list(range(len(meta['piece_list'])))))
     else:
         seatnum, startingview = myworkout(workoutId)
+        startingview, piece_list = startingview
+        
 
     totalspan = ""
-    for pieceIdx, piece in enumerate(meta['athlete_list']):
-        spanner = '<span>Piece ' + str(pieceIdx+1) + ": </span>"
-        for idx, athlet in enumerate(piece):
-            spapender = ", </span>" if idx<7 else "</span>"
-            spanner += '<span style=color:' +  colors[idx] + '>Seat ' +str(idx+1) + \
-                ": "+ athlet + spapender
-        if pieceIdx > 0:
-            totalspan += "<br>"
-        totalspan += spanner
+    if isAdmin:
+        for pieceIdx, piece in enumerate(meta['athlete_list']):
+            spanner = '<span>Piece ' + str(pieceIdx+1) + ": </span>"
+            for idx, athlet in enumerate(piece):
+                spapender = ", </span>" if idx<7 else "</span>"
+                spanner += '<span style=color:' +  colors[idx] + '>Seat ' +str(idx+1) + \
+                    ": "+ athlet + spapender
+            if pieceIdx > 0:
+                totalspan += "<br>"
+            totalspan += spanner
                 
 
     html = render_template(
@@ -348,42 +352,13 @@ def overallView(internalId= None):
 
     multi_piece = len(meta['piece_list']) > 1
 
-    if not internalId:
-        if multi_piece:
-            response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
-            for num, piece in enumerate(meta['piece_list']):
-                response +=  '<li class="nav-item">'  
-                response += '<button class="btn btn-outline-info'
-                if str(num) == piece_num:
-                    response += ' active" role = "button" aria-pressed = "true'
-                response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(num) + '" hx-target = "#raw">' + piece + '</button>' 
-                response += '</li>'
-            response += '</ul> </div>'
-
-        
-        response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
-        response +=  '<li class="nav-item">'  
-        response += '<button class="btn btn-outline-primary'
-        response += ' active" role = "button" aria-pressed = "true'
-        if multi_piece: 
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + piece_num + '" hx-target = "#raw">' + "Overall View" + '</button>' 
-        else:
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '" hx-target = "#raw">' + "Overall View" + '</button>' 
-        response += '</li>'
-        for num in range(8):
-            response +=  '<li class="nav-item">'  
-            response += '<button class="btn btn-outline-primary"'
-            if not multi_piece:
-                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
-            else:
-                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + piece_num + '" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
-            response += '</li>'
-        response += '</ul> </div>'
+    response = gen_overall_response(internalId, piece_num, meta, multi_piece)
 
     # render template
     script, div = components(my_grid)
     
     return response + '<div id = "overall">' + div+script + '<div>'
+
 
 
 @main_bp.route('/workoutseat', methods = ['POST'])
@@ -393,6 +368,7 @@ def workoutforseat():
     seat_num = int(request.args.get('s'))
 
     piece_num = request.args.get('piece')
+        
 
     if piece_num:
         piece_num = int(piece_num)
@@ -405,12 +381,26 @@ def workoutforseat():
         practice = queryWorkoutData(workoutId)
         meta = queryWorkoutMeta(workoutId)
         unpickledWorkouts[workoutId] = practice, meta
-
+    athlete_name = meta['athlete_list'][piece_num][seat_num]
 
     elite = practice['peach_data'][piece_num]
-
-
-    return individual_workout(elite, seat_num, meta, False, piece_num)
+    if request.args.get('ad') is None:
+        athDict = {}
+        athleteMap = meta['athlete_list']
+        for pieceIdx in range(len(athleteMap)):
+            for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
+                in_dict = athDict.get(piece_athlete,None)
+                if in_dict is not None:
+                    pl = in_dict
+                    pl.append(pieceIdx)
+                    athDict[piece_athlete] = pl
+                else:
+                    athDict[piece_athlete] = [pieceIdx]
+            
+        my_pieces = athDict[athlete_name]
+        return individual_workout(elite, seat_num, meta, False, piece_num, my_pieces)[0]
+    return individual_workout(elite, seat_num, meta, False, piece_num, None, True)[0]
+    
      
 
 
@@ -439,11 +429,11 @@ def myworkout(internalId = None):
     piece_num = request.args.get('piece')
 
     if not piece_num:
-        elite = practice['peach_data'][0]
+        piece_num = int(min(athlete['piecelist'][workoutId]))
     else:
         if int(piece_num) not in athlete['piecelist'][workoutId]:
             piece_num = int(min(athlete['piecelist'][workoutId]))
-        elite = practice['peach_data'][int(piece_num)]
+    elite = practice['peach_data'][int(piece_num)]
         
     athDict = {}
     athleteMap = meta['athlete_list']
@@ -451,79 +441,31 @@ def myworkout(internalId = None):
         for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
             in_dict = athDict.get(piece_athlete,None)
             if in_dict is not None:
-                pl, side = in_dict
+                pl = in_dict
                 pl.append(pieceIdx)
-                athDict[piece_athlete] = (pl,side)
+                athDict[piece_athlete] = pl
             else:
-                side = 'port' if paidx%2 != 0 else 'starboard'
-                athDict[piece_athlete] = ([pieceIdx], side)
+                athDict[piece_athlete] = [pieceIdx]
         
     my_pieces = athDict[athlete['namestring']]
-
     if internalId:
         internal = True
 
-    seat_num = meta['athlete_list'][piece_num].index(athlete['first'] + " " + athlete['last'])
+    seat_num = meta['athlete_list'][int(piece_num)].index(athlete['namestring'])
     
-    return seat_num, individual_workout(elite, seat_num, meta, internal, my_pieces)
+    return seat_num, individual_workout(elite, seat_num, meta, internal, piece_num, my_pieces)
 
 
 
-def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, piecers=None):
+def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, piecers=None, ad=False):
     npts = 100
 
     colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
 
-    ax = [None]*2
-    ax[0] = figure(background_fill_color="#fafafa")
-    ax[1] = figure(background_fill_color="#fafafa")
-    bx = [None]*2
-    bx[0] = figure(background_fill_color="#fafafa")
-    bx[1] = figure(background_fill_color="#fafafa")
-
-
-    cx = [None]*2
-    cx[0] = figure(background_fill_color="#fafafa")
-    cx[1] = figure(background_fill_color="#fafafa")
-
-
-    dx = [None]*3
-    dx[0] = figure(background_fill_color="#fafafa")
-    dx[1] = figure(background_fill_color="#ffffff", x_range = Range1d(0,100), y_range = Range1d(0,100), tools =[])
-    dx[2] = figure(background_fill_color="#fafafa")
-
-    dx[1].xaxis.major_tick_line_color = None  # turn off x-axis major ticks
-    dx[1].xaxis.minor_tick_line_color = None  # turn off x-axis minor ticks
-    dx[1].yaxis.major_tick_line_color = None  # turn off y-axis major ticks
-    dx[1].yaxis.minor_tick_line_color = None  # turn off y-axis minor ticks
-
-    dx[1].xaxis.major_label_text_font_size = '0pt'  # preferred method for removing tick labels
-    dx[1].yaxis.major_label_text_font_size = '0pt'  # preferred method for removing tick labels
-
-    dx[1].outline_line_width = 7
-    dx[1].outline_line_alpha = 0.3
-    dx[1].outline_line_color = "navy"
-
-    dx[1].grid.visible = False
-
-    dx[1].xaxis.visible = False # preferred method for removing tick labels
-    dx[1].yaxis.visible = False 
-
-    x = [39]
-    y = [90]
-    text = ["Analysis"]
+    ax, bx, cx, dx = generate_figs()
 
     analysis_pts = []
 
-    source = ColumnDataSource(dict(x=x, y=y, text = text))    
-
-    title  = Text(x='x', y='y', text='text', text_color = '#00008b', text_font_size = "32px")
-
-    dx[1].add_glyph(source, title)
-
-
-
-    # stroke_nums = list(range(1, elite.numstrokes+1))
 
     theta3 = []
     thetadot3 = []
@@ -577,27 +519,7 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
 
     polygons = []
     coordinates = mathDict['double_dip_coords']
-    for coordIdx in range(0,len(coordinates), 2):
-        plotxs=[coordinates[coordIdx][0], coordinates[coordIdx][0], coordinates[coordIdx+1][0], coordinates[coordIdx+1][0]]
-        plotys=[coordinates[coordIdx][1]-5, coordinates[coordIdx][1]+2, coordinates[coordIdx+1][1]+2, coordinates[coordIdx+1][1]-5]
-        polygons += [(
-            PolyAnnotation(
-            fill_color="red",
-            fill_alpha=0.3,
-            xs=plotxs,
-            ys = plotys
-        ), 
-        Label(
-            x=coordinates[coordIdx][0],
-         y=(coordinates[coordIdx][1] + coordinates[coordIdx+1][1] + 1)/2,
-         angle = (plotys[2]-plotys[1])/(plotxs[2]-plotxs[1]), 
-         x_units='data', y_units = 'data', 
-         text='Disconnect')
-         )]
-
-    for polygon, polylabel in polygons:
-        bx[0].add_layout(polygon)
-        bx[0].add_layout(polylabel)
+    plot_double_dip(bx, polygons, coordinates)
 
 
     print(mathDict['work_first_half'])
@@ -630,9 +552,6 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
 
     late_prep = sudden_accel and late_placement
 
-
-
-
     if not early_build and late_prep:
         analysis_pts.append("You are likely lunging at the catch")
         analysis_pts.append("Try to prepare the body earlier.") 
@@ -654,16 +573,13 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
 
 
 
-
     source = ColumnDataSource(dict(x=x, y=y, text = analysis_pts))    
 
     title  = Text(x='x', y='y', text='text', text_color = '#00008b', text_font_size = "20px")
 
     dx[1].add_glyph(source, title)
 
-
     split = elite.get_rating_chunks()
-
 
     for idx, one_split in enumerate(split):
         split_svd = peachhelp.svd_module(elite, 100, seat_num, (one_split[0], one_split[1]))
@@ -690,53 +606,24 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
 
     my_grid.sizing_mode = "scale_both"
 
-    response = ""
-
     multi_piece = len(meta['piece_list']) > 1
 
     # TODO: only render the pieces that belong to this athlete
     piece_loop = []
     if piecers is None:
-        piece_loop = zip(meta['piece_list'], list(range(len(meta['piece_list']))))
+        piece_loop = list(zip(meta['piece_list'], list(range(len(meta['piece_list'])))))
     else:
         piece_loop = [(meta['piece_list'][i], i) for i in piecers]
 
-    if not internal:
-        if multi_piece:
-            response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
-            for piece, num in piece_loop:
-                response +=  '<li class="nav-item">'  
-                response += '<button class="btn btn-outline-info'
-                if num == piece_num:
-                    response += ' active" role = "button" aria-pressed = "true'
-                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s=' 
-                response += str(seat_num) + '&piece=' + str(num) + '" hx-target = "#raw">' + str(piece) + '</button>' 
-                response += '</li>'
-            response += '</ul> </div>'
-        response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
-        response +=  '<li class="nav-item">'  
-        response += '<button class="btn btn-outline-primary'
-        if multi_piece: 
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(piece_num) + '" hx-target = "#raw">' + "Overall View" + '</button>' 
-        else:
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '" hx-target = "#raw">' + "Overall View" + '</button>' 
-        response += '</li>'
-        for num in range(8):
-            response +=  '<li class="nav-item">'  
-            response += '<button class="btn btn-outline-primary'
-            if num == seat_num:
-                response += ' active" role = "button" aria-pressed = "true'
-            if not multi_piece:
-                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
-            else:
-                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + str(piece_num) + '" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
-            response += '</li>'
-        response += '</ul> </div>'
+
+    response = gen_indv_response(seat_num, meta, internal, piece_num, multi_piece, piece_loop, ad)
 
     # render template
     script, div = components(my_grid)
 
-    return response + '<div id = "individual">' + div + script + "</div>"
+    return (response + '<div id = "individual">' + div + script + "</div>", piece_loop)
+
+
 
 
 @main_bp.route('/profile', methods=['GET', 'POST'])
@@ -867,3 +754,151 @@ def splitPieces():
     
     
     return render_template("embed.html", script=script, template="Flask")
+
+
+def gen_indv_response(seat_num, meta, internal, piece_num, multi_piece, piece_loop,ad):
+    response = ""
+    if not internal:
+        if multi_piece:
+            response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
+            for piece, num in piece_loop:
+                response +=  '<li class="nav-item">'  
+                response += '<button class="btn btn-outline-info'
+                if num == piece_num:
+                    response += ' active" role = "button" aria-pressed = "true'
+                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s=' 
+                response += str(seat_num) + '&piece=' + str(num)
+                if ad:
+                    response+= '&ad=1'
+                response += '" hx-target = "#raw">' + str(piece) + '</button>' 
+                response += '</li>'
+            response += '</ul> </div>'
+        response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
+        response +=  '<li class="nav-item">'  
+        response += '<button class="btn btn-outline-primary'
+        if multi_piece: 
+            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(piece_num) + '" hx-target = "#raw">' + "Overall View" + '</button>' 
+        else:
+            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '" hx-target = "#raw">' + "Overall View" + '</button>' 
+        response += '</li>'
+        for num in range(8):
+            response +=  '<li class="nav-item">'  
+            response += '<button class="btn btn-outline-primary'
+            if num == seat_num:
+                response += ' active" role = "button" aria-pressed = "true'
+            if not multi_piece:
+                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num)
+                if ad:
+                    response+= '&ad=1'
+                response += '" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
+            else:
+                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + str(piece_num)
+                if ad:
+                    response+= '&ad=1'
+                response += '" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
+            response += '</li>'
+        response += '</ul> </div>'
+    return response
+
+def plot_double_dip(bx, polygons, coordinates):
+    for coordIdx in range(0,len(coordinates), 2):
+        plotxs=[coordinates[coordIdx][0], coordinates[coordIdx][0], coordinates[coordIdx+1][0], coordinates[coordIdx+1][0]]
+        plotys=[coordinates[coordIdx][1]-5, coordinates[coordIdx][1]+2, coordinates[coordIdx+1][1]+2, coordinates[coordIdx+1][1]-5]
+        polygons += [(
+            PolyAnnotation(
+            fill_color="red",
+            fill_alpha=0.3,
+            xs=plotxs,
+            ys = plotys
+        ), 
+        Label(
+            x=coordinates[coordIdx][0],
+         y=(coordinates[coordIdx][1] + coordinates[coordIdx+1][1] + 1)/2,
+         angle = (plotys[2]-plotys[1])/(plotxs[2]-plotxs[1]), 
+         x_units='data', y_units = 'data', 
+         text='Disconnect')
+         )]
+
+    for polygon, polylabel in polygons:
+        bx[0].add_layout(polygon)
+        bx[0].add_layout(polylabel)
+
+def generate_figs():
+    ax = [None]*2
+    ax[0] = figure(background_fill_color="#fafafa")
+    ax[1] = figure(background_fill_color="#fafafa")
+    bx = [None]*2
+    bx[0] = figure(background_fill_color="#fafafa")
+    bx[1] = figure(background_fill_color="#fafafa")
+
+
+    cx = [None]*2
+    cx[0] = figure(background_fill_color="#fafafa")
+    cx[1] = figure(background_fill_color="#fafafa")
+
+
+    dx = [None]*3
+    dx[0] = figure(background_fill_color="#fafafa")
+    dx[1] = figure(background_fill_color="#ffffff", x_range = Range1d(0,100), y_range = Range1d(0,100), tools =[])
+    dx[2] = figure(background_fill_color="#fafafa")
+
+    dx[1].xaxis.major_tick_line_color = None  
+    dx[1].xaxis.minor_tick_line_color = None  
+    dx[1].yaxis.major_tick_line_color = None  
+    dx[1].yaxis.minor_tick_line_color = None  
+    dx[1].xaxis.major_label_text_font_size = '0pt'  
+    dx[1].yaxis.major_label_text_font_size = '0pt'  
+    dx[1].outline_line_width = 7
+    dx[1].outline_line_alpha = 0.3
+    dx[1].outline_line_color = "navy"
+    dx[1].grid.visible = False
+    dx[1].xaxis.visible = False 
+    dx[1].yaxis.visible = False 
+
+    x = [39]
+    y = [90]
+    text = ["Analysis"]
+
+
+    source = ColumnDataSource(dict(x=x, y=y, text = text))    
+
+    title  = Text(x='x', y='y', text='text', text_color = '#00008b', text_font_size = "32px")
+
+    dx[1].add_glyph(source, title)
+    return ax,bx,cx,dx
+
+
+def gen_overall_response(internalId, piece_num, meta, multi_piece):
+    response = ""
+    if not internalId:
+        if multi_piece:
+            response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
+            for num, piece in enumerate(meta['piece_list']):
+                response +=  '<li class="nav-item">'  
+                response += '<button class="btn btn-outline-info'
+                if str(num) == piece_num:
+                    response += ' active" role = "button" aria-pressed = "true'
+                response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(num) + '" hx-target = "#raw">' + piece + '</button>' 
+                response += '</li>'
+            response += '</ul> </div>'
+
+        
+        response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
+        response +=  '<li class="nav-item">'  
+        response += '<button class="btn btn-outline-primary'
+        response += ' active" role = "button" aria-pressed = "true'
+        if multi_piece: 
+            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + piece_num + 'ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
+        else:
+            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + 'ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
+        response += '</li>'
+        for num in range(8):
+            response +=  '<li class="nav-item">'  
+            response += '<button class="btn btn-outline-primary"'
+            if not multi_piece:
+                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + 'ad=1" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
+            else:
+                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + piece_num + '&ad=1" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
+            response += '</li>'
+        response += '</ul> </div>'
+    return response
