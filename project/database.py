@@ -29,13 +29,13 @@ def get_db():
        
     return db
 
-db = LocalProxy(get_db)
+flaskdb = LocalProxy(get_db)
 
 
 # ------------------------------------------------------------------- #
 # general athlete collection methods 
 
-def addAthlete(athleteDict):
+def addAthlete(athleteDict, db = flaskdb):
     print(f'addAthlete called with {athleteDict}')
     try:
         result = db.athletes.insert_one(athleteDict)
@@ -44,7 +44,7 @@ def addAthlete(athleteDict):
         print(str(e))
         return None
 
-def editAthlete(athleteId, field, newVal):
+def editAthlete(athleteId, field, newVal, db = flaskdb):
     print(f'editAthlete called with {athleteId}, {field}, {newVal}')
     try:
         result = db.athletes.update_one({'_id' : athleteId}, {'$set' : {field : newVal}})
@@ -53,7 +53,7 @@ def editAthlete(athleteId, field, newVal):
         print(str(e))
         return None
 
-def queryAthlete(athleteId):
+def queryAthlete(athleteId, db = flaskdb):
     print(f'queryAthlete called with {athleteId}')
     try:
         athleteId = int(athleteId)
@@ -62,7 +62,7 @@ def queryAthlete(athleteId):
         print(str(e))
         return None
 
-def queryAthleteByName(first, last, team):
+def queryAthleteByName(first, last, team, db = flaskdb):
     print(f'queryAthleteByName called with {first} {last} {team}')
     try:
         return db.athletes.find_one({'first' : first, 'last' : last, 'teamId': team})
@@ -70,7 +70,8 @@ def queryAthleteByName(first, last, team):
         print(str(e))
         return None
 
-def getAllAthletes(teamId, sort_by='name', active_only=False):
+def getAllAthletes(teamId, sort_by='name', active_only=False, db = flaskdb):
+    print(f'getAllAthletes called with teamId: {teamId}')
     try:
         if active_only:
             return db.athletes.find({'active': True, 'teamId' : teamId}, sort=[(sort_by, pymongo.ASCENDING)])
@@ -80,15 +81,16 @@ def getAllAthletes(teamId, sort_by='name', active_only=False):
         print(str(e))
         return None
 
-def addWorkoutToAthlete(athleteId, workoutId):
+def addWorkoutToAthlete(athleteId, workoutId, piece_list, db = flaskdb):
+    print(f"addWorkouttoAthlete called for {athleteId}")
     try:
-        result = db.athletes.update_one({'_id' : int(athleteId)}, {'$push' : {"workouts" : workoutId}})
+        result = db.athletes.update_one({'_id' : int(athleteId)}, {'$push' : {"workouts" : workoutId}, '$set': {"piecelist." + str(workoutId): piece_list}})
         return result
     except Exception as e:
         print(str(e))
         return None
 
-def removeWorkoutFromAthlete(athleteId, workoutId):
+def removeWorkoutFromAthlete(athleteId, workoutId, db = flaskdb):
     try:
         result = db.athletes.update_one({'_id' : athleteId}, {'$unset' : {f'workouts.{workoutId}' : ''}})
         return result
@@ -98,7 +100,7 @@ def removeWorkoutFromAthlete(athleteId, workoutId):
 # ------------------------------------------------------------------- #
 # general workout collection methods 
 
-def addWorkout(workoutDict, teamId):
+def addWorkout(workoutDict, teamId, db = flaskdb):
     title = workoutDict['title']
     print(f'addworkout called with {title}, {teamId}')
     dataDict = collections.defaultdict()
@@ -113,8 +115,25 @@ def addWorkout(workoutDict, teamId):
     except Exception as e:
         print(str(e))
         return None
+    
+def addUnsplit(workoutDict, teamId, serverfilename, db = flaskdb):
+    print(f'addunsplit called with {teamId}')
+    dataDict = collections.defaultdict()
+    try:
+        workoutDict['teamId'] = teamId
+        workoutDict['serverfilename'] = serverfilename
+        dataDict['peach_data'] = workoutDict.pop('peach_data')
+        dataDict['teamId'] = teamId
+        result = db.unsplitsmeta.insert_one(workoutDict)
+        dataDict['_id'] = result.inserted_id
+        result = db.unsplitsdata.insert_one(dataDict)
+        return result.inserted_id
+    except Exception as e:
+        print(str(e))
+        return None
 
-def editWorkout(workoutId, field, newVal):
+
+def editWorkout(workoutId, field, newVal, db = flaskdb):
     print(f'editWorkout called with {workoutId}, {field}, {newVal}')
     try:
         result = db.workoutsmeta.update_one({'_id' : workoutId}, {'$set' : {field : newVal}})
@@ -123,7 +142,7 @@ def editWorkout(workoutId, field, newVal):
         print(str(e))
         return None
 
-def queryWorkoutMeta(workoutId):
+def queryWorkoutMeta(workoutId, db = flaskdb):
     print(f'queryWorkoutMeta called with {workoutId}')
     try:
         workoutId = int(workoutId)
@@ -133,7 +152,7 @@ def queryWorkoutMeta(workoutId):
         print(str(e))
         return None
 
-def queryWorkoutData(workoutId):
+def queryWorkoutData(workoutId, db = flaskdb):
     print(f'queryWorkoutData called with {workoutId}')
     try:
         workoutId = int(workoutId)
@@ -144,8 +163,30 @@ def queryWorkoutData(workoutId):
     except Exception as e:
         print(str(e))
         return None
+    
+def queryUnsplitMeta(workoutId, db = flaskdb):
+    print(f'queryUnsplittMeta called with {workoutId}')
+    try:
+        workoutId = int(workoutId)
+        res = db.unsplitsmeta.find_one({'_id' : workoutId})
+        return res
+    except Exception as e:
+        print(str(e))
+        return None
 
-def deleteWorkout(workoutId):
+def queryUnsplitData(workoutId, db = flaskdb):
+    print(f'queryUnsplitData called with {workoutId}')
+    try:
+        workoutId = int(workoutId)
+        res = db.unsplitsdata.find_one({'_id' : workoutId})
+        temp = pickle.loads(res['peach_data'])
+        res['peach_data'] = temp
+        return res
+    except Exception as e:
+        print(str(e))
+        return None
+
+def deleteWorkout(workoutId, db = flaskdb):
     print(f'deleteWorkout called with {workoutId}')
     try:
         result = db.workoutsmeta.delete_one({'_id' : workoutId})
@@ -154,18 +195,38 @@ def deleteWorkout(workoutId):
     except Exception as e:
         print(str(e))
         return None
+    
+def deleteUnsplit(workoutId, db = flaskdb):
+    print(f'deleteUnsplit called with {workoutId}')
+    try:
+        result = db.unsplitsmeta.delete_one({'_id' : workoutId})
+        result = db.unsplitsdata.delete_one({'_id' : workoutId})
+        return result.deleted_count
+    except Exception as e:
+        print(str(e))
+        return None
 
-def getAllWorkouts(teamId, sort_by='date'):
+
+def getAllWorkouts(teamId, sort_by='date', db = flaskdb):
     print(f'getAllWorkouts called with {teamId}')
     try:
         return db.workoutsmeta.find({'teamId' : teamId}, sort=[(sort_by, pymongo.DESCENDING)])
     except Exception as e:
         print(str(e))
         return None
+    
+def getAllUnsplits(teamId, sort_by='date', db = flaskdb):
+    print(f'getAllUnsplits called with {teamId}')
+    try:
+        return db.unsplitsmeta.find({'teamId' : teamId}, sort=[(sort_by, pymongo.DESCENDING)])
+    except Exception as e:
+        print(str(e))
+        return None
+
 
 # ------------------------------------------------------------------ # 
 # general team db methods
-def queryTeam(teamId):
+def queryTeam(teamId, db = flaskdb):
     print(f'queryTeam called with {teamId}')
     try:
         teamId = int(teamId)
@@ -175,7 +236,7 @@ def queryTeam(teamId):
         print(str(e))
         return None
 
-def addTeam(name):
+def addTeam(name, db = flaskdb):
     print(f'addTeam called with {name}')
     try:
         teamId = random.randint(10, 999999)
@@ -192,7 +253,7 @@ def addTeam(name):
 # ------------------------------------------------------------------- #
 # takes a workout ID, gets all participating athletes, and adds that 
 # workout to each athlete's 'workouts' array
-def attributeWorkout(workoutId):
+def attributeWorkout(workoutId, db = flaskdb):
     try:
         workout = db.workoutsmeta.find_one({'_id' : workoutId})
         # athletes who completeted the workout
@@ -208,7 +269,7 @@ def attributeWorkout(workoutId):
 
 # ------------------------------------------------------------------- #
 # add an athlete to the credentials database
-def addCredentials(athleteId, email, pwHash, salt):
+def addCredentials(athleteId, email, pwHash, salt, db = flaskdb):
     print(f'addCredentials called with {athleteId}, {email}')
     try:
         newCreds = {
@@ -224,11 +285,11 @@ def addCredentials(athleteId, email, pwHash, salt):
         return None
 
 # add an athlete to the credentials database
-def addCredentialsJson(json):
+def addCredentialsJson(json, db = flaskdb):
     db.credentials.insert_one(json)
 
 
-def getCredentials(email):
+def getCredentials(email, db = flaskdb):
     print(f'getCredentialsbyemail called with {email}')
     # print(db)
     try:
@@ -240,7 +301,7 @@ def getCredentials(email):
         return None
 
 
-def getCredentialsbyId(id):
+def getCredentialsbyId(id, db = flaskdb):
     print(f'getCredentialsbyId called with {id}')
     # print(type(id))
     try:
@@ -251,7 +312,7 @@ def getCredentialsbyId(id):
         return None
 
 
-def editCredentials(athleteId, field, value):
+def editCredentials(athleteId, field, value, db = flaskdb):
     print(f'editCredentials called with {athleteId}')
     try:
         result = db.credentials.update_one( {'_id' : athleteId}, {'$set' : {field : value}})
@@ -260,7 +321,7 @@ def editCredentials(athleteId, field, value):
         print(str(e))
         return None
 
-def editCredentialsBatch(athleteId, field1, value1, field2, value2, field3, value3):
+def editCredentialsBatch(athleteId, field1, value1, field2, value2, field3, value3, db = flaskdb):
     print(f'editCredentialsBatch called with {athleteId}')
     try:
         result = db.credentials.update_one({'_id' : athleteId}, {'$set' : {field1 : value1, field2 : value2, field3 : value3}})
@@ -275,119 +336,4 @@ def editCredentialsBatch(athleteId, field1, value1, field2, value2, field3, valu
 # Test code
 
 if __name__ == "__main__":
-    # athlete1 = {
-    #     "_id" : 69,
-    #     "first" : "Henry",
-    #     "last" : "Vecchione",
-    #     "permissions" : ["admin"],
-    #     "prs" : {
-    #         "2000m" : "6:24",
-    #         "6000m" : "20:32"
-    #     },
-    #     "workouts" : [],
-    #     "side" : ["port"],
-    #     "class" : 2022,
-    #     "active" : True,
-    #     "awards" : {
-    #         "earc" : [],
-    #         "ira" : [],
-    #         "shirts" : ['g','de','n','da','t','p']
-    #     },
-    #     "teamId" : 1
-    # }
-    # athlete2 = {
-    #     "_id" : 1,
-    #     "first" : "Cal",
-    #     "last" : "Gorvy",
-    #     "permissions" : [],
-    #     "prs" : {
-    #         "2000m" : "5:59",
-    #         "6000m" : "17:24"
-    #     },
-    #     "workouts" : [],
-    #     "side" : ["starboard"],
-    #     "class" : 2025,
-    #     "active" : True,
-    #     "awards" : {
-    #         "earc" : ['4V'],
-    #         "ira" : ['1V'],
-    #         "shirts" : ['g','de','n','h','y','t','p']
-    #     },
-    #     "teamId" : 1
-    # }
-    # athlete3 = {
-    #     "_id" : 2,
-    #     "first" : "Peter",
-    #     "last" : "Skinner",
-    #     "permissions" : [],
-    #     "prs" : {
-    #         "2000m" : "5:59",
-    #         "6000m" : "17:24"
-    #     },
-    #     "workouts" : [],
-    #     "side" : ["port"],
-    #     "class" : 2023,
-    #     "active" : True,
-    #     "awards" : {
-    #         "earc" : ['4V'],
-    #         "ira" : ['1V'],
-    #         "shirts" : ['g','de','n','h','y','t','p']
-    #     },
-    #     "teamId" : 1
-    # }
-    # athlete4 = {
-    #     "_id" : 3,
-    #     "first" : "Will",
-    #     "last" : "Olson",
-    #     "permissions" : [],
-    #     "prs" : {
-    #         "2000m" : "5:59",
-    #         "6000m" : "17:24"
-    #     },
-    #     "workouts" : [],
-    #     "side" : ["port"],
-    #     "class" : 2023,
-    #     "active" : True,
-    #     "awards" : {
-    #         "earc" : ['4V'],
-    #         "ira" : ['1V'],
-    #         "shirts" : ['g','de','n','h','y','t','p']
-    #     },
-    #     "teamId" : 1
-    # }
-    # workout1 = {
-    #     '_id' : 1,
-    #     'title' : '2x4000m, 3000m',
-    #     'date' : datetime.datetime(2021, 11, 8),
-    #     'pieces' : ['4000m', '4000m', '3000m'],
-    #     'scores' : {
-    #         '69' : ['15:12', '15:25' , '12:00'],
-    #         '1' : ['13:14', '14:20', '13:15']
-    #     },
-    #     'notes' : 'open rate',
-    #     'test' : False
-    # }
-    # workout2 = {
-    #     '_id' : 2,
-    #     'title' : '6x2000m',
-    #     'date' : datetime.datetime(2021, 10, 31),
-    #     'pieces' : ['2000m','2000m','2000m','2000m','2000m','2000m'],
-    #     'scores' : {
-    #         '69' : ['15:12', '15:25' , '12:00','15:12', '15:25' , '12:00'],
-    #         '1' : ['13:14', '14:20', '13:15','13:14', '14:20', '13:15']
-    #     },
-    #     'notes' : 'wowwwee',
-    #     'test' : False
-    # }
-
-    # pwPlain = b"sugmaLigma"
-    # salt = bcrypt.gensalt()
-    # hashed = bcrypt.hashpw(pwPlain, salt)
-    # addCredentials(69,"hjv@princeton.edu", hashed, salt)
-
-    # pwPlain = b'admin'
-    # salt = bcrypt.gensalt()
-    # hashed = bcrypt.hashpw(pwPlain, salt)
-    # addCredentials(420, 'a@x.com', hashed, salt)
-
-    pass
+    print(getAllAthletes(346502))

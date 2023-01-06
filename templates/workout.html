@@ -5,7 +5,7 @@
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css">
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-        <!--<link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}"> -->
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}"> 
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
         <script src="https://unpkg.com/htmx.org@1.8.4" integrity="sha384-wg5Y/JwF7VxGk4zLsJEcAojRtlVp1FKKdGy1qN+OMtdq72WRvX/EdRdqg/LOhYeV" crossorigin="anonymous"></script>
         {{ js_resources|indent(4)|safe }}
@@ -14,7 +14,7 @@
     </head>
     <body>
         <div class="container-fluid">
-            <nav class="navbar navbar-expand-xl navbar-dark bg-dark">
+            <nav class="navbar navbar-expand-lg navbar-light" style="background-color: transparent">
                 <div class="container-fluid">
                 <a class="navbar-brand" href="/home"><h1><em>PeachPortal</em></h1></a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,17 +35,25 @@
                     </li>
                     {% for num in num_seats%}
                     <li class="nav-item">
-                        <button class="btn btn-outline-primary" hx-post= "/workoutseat?w={{workout['_id']}}&s={{num}}&piece=0" hx-target = "#raw">Seat {{num+1}} Details</button> 
+                        <button class="btn btn-outline-primary" hx-post= "/workoutseat?w={{workout['_id']}}&s={{num}}&piece=0&ad=1" hx-target = "#raw">Seat {{num+1}} Details</button> 
                     </li>
                     {%endfor%}
                     </ul>
                     </div>
                     {%endif%}
                 </div>
-                </div>
+                    <section>
+                    <div class="wave">
+                    </div>
+                    <div class="wave1">
+                    </div>
+                    <div class="wave2">
+                    </div>
+                  </section>    
+            </div>
             </nav>
             {% if piece_list|length > 1 %}
-            <nav class="navbar navbar-expand-xl navbar-dark bg-dark">
+            <nav class="navbar navbar-expand-lg navbar-light" style="background-color: transparent">
                 <div class="container-fluid">
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <div id = "piecelist">
@@ -54,29 +62,29 @@
                     {% if isAdmin %}
                     {% if loop.index0 == 0 %}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutoverall?w={{workout['_id']}}&piece={{ loop.index0 }}" hx-target = "#raw">{{piece}}</button> 
+                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutoverall?w={{workout['_id']}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%else%}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info" hx-post= "/workoutoverall?w={{workout['_id']}}&piece={{ loop.index0 }}" hx-target = "#raw">{{piece}}</button> 
+                        <button class="btn btn-outline-info" hx-post= "/workoutoverall?w={{workout['_id']}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%endif%}
                     {%else%}
                     {% if loop.index0 == 0 %}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ loop.index0 }}" hx-target = "#raw">{{piece}}</button> 
+                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%else%}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ loop.index0 }}" hx-target = "#raw">{{piece}}</button> 
+                        <button class="btn btn-outline-info" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%endif%}
                     {%endif%}
                     {%endfor%}
                     </ul>
                     </div>
-                </div>
-                </div>
+                </div> 
+            </div>
             </nav>
             {%endif%}
             <div class="card" style="width: 100%; ">
