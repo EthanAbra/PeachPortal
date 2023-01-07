@@ -55,7 +55,7 @@ def create_app(debug = False):
 
         # This is so that if this app is run using something like "gunicorn -w 4" then
         # each process will listen on its own port
-        sockets, port = bind_sockets("http://peachportal.azurewebsites.net", 0)
+        sockets, port = bind_sockets("127.0.0.1", 0)
         app._bokehport = port
         print("Bokeh port: ")
         print(app._bokehport)
@@ -64,7 +64,7 @@ def create_app(debug = False):
 
             asyncio.set_event_loop(asyncio.new_event_loop())
             #TODO: this makes me uncomfortable, but I don't know how to do it better
-            bokeh_tornado = BokehTornado({'/bkapp': bkapp}, extra_websocket_origins=["*", "localhost", "peachportal.azurewebsites.net", "127.0.0.1"])
+            bokeh_tornado = BokehTornado({'/bkapp': bkapp}, extra_websocket_origins=["*"])
             bokeh_http = HTTPServer(bokeh_tornado)
             bokeh_http.add_sockets(sockets)
 
