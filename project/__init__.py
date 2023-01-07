@@ -55,7 +55,7 @@ def create_app(debug = False):
 
         # This is so that if this app is run using something like "gunicorn -w 4" then
         # each process will listen on its own port
-        sockets, port = bind_sockets("127.0.0.1", 0)
+        sockets, port = bind_sockets("0.0.0.0", 0)
         app._bokehport = port
         print("Bokeh port: ")
         print(app._bokehport)
@@ -67,10 +67,10 @@ def create_app(debug = False):
             bokeh_tornado = BokehTornado({'/bkapp': bkapp}, extra_websocket_origins=["*"])
             bokeh_http = HTTPServer(bokeh_tornado)
             bokeh_http.add_sockets(sockets)
-
             server = BaseServer(IOLoop.current(), bokeh_tornado, bokeh_http)
             server.start()
             server.io_loop.start()
+            
 
         from threading import Thread
         Thread(target=bk_worker).start()
