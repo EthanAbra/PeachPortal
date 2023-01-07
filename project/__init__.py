@@ -55,9 +55,9 @@ def create_app(debug = False):
 
         # This is so that if this app is run using something like "gunicorn -w 4" then
         # each process will listen on its own port
-        sockets, port = bind_sockets("peachportal.azurewebsites.net", 0)
+        sockets, port = bind_sockets("localhost", 0)
         app._bokehport = port
-
+        print(app._bokehport)
 
         def bk_worker():
 
