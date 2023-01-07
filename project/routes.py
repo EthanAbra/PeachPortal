@@ -750,7 +750,7 @@ def splitPieces():
 
     teamId = athlete['teamId']
         
-    script = server_document('http://localhost:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId, "teamId": teamId})
+    script = server_document('https://peachportal.azurewebsites.net:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId, "teamId": teamId})
     
     
     return render_template("embed.html", script=script, template="Flask")
