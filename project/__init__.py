@@ -65,7 +65,9 @@ def create_app(debug = False):
             asyncio.set_event_loop(asyncio.new_event_loop())
             #TODO: this makes me uncomfortable, but I don't know how to do it better
             bokeh_tornado = BokehTornado({'/bkapp': bkapp}, extra_websocket_origins=["*"])
-            bokeh_http = HTTPServer(bokeh_tornado)
+            bokeh_http = HTTPServer(bokeh_tornado,  ssl_options={"certfile": './.domain.crt', "keyfile":'./.domain.rsa'})
+
+            print(vars(bokeh_http))
             bokeh_http.add_sockets(sockets)
             server = BaseServer(IOLoop.current(), bokeh_tornado, bokeh_http)
             server.start()
