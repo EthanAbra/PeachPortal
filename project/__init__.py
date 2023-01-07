@@ -57,6 +57,7 @@ def create_app(debug = False):
         # each process will listen on its own port
         sockets, port = bind_sockets("localhost", 0)
         app._bokehport = port
+        print("Bokeh port: ")
         print(app._bokehport)
 
         def bk_worker():
