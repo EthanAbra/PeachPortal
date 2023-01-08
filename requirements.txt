@@ -29,6 +29,6 @@ xmltodict==0.13.0
 xlsx2csv==0.8.0
 fuzzywuzzy==0.18.0
 python-Levenshtein
-PyJWT==1.7.1
+PyJWT==2.6.0
 Flask-Mail==0.9.1
 flask-jwt-extended
