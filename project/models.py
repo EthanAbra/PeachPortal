@@ -3,9 +3,11 @@ from .database import addCredentialsJson
 import bcrypt
 from flask import session
 from flask_login import UserMixin
-from . import login_manager
+from . import login_manager, jwt
 import uuid
-
+import os
+from datetime import timedelta
+from flask_jwt_extended import create_access_token, decode_token
 
 
 class User(UserMixin):
@@ -23,6 +25,18 @@ class User(UserMixin):
         return False
     def get_id(self):
         return str(self._id)
+
+    def get_reset_token(self):
+        return create_access_token(identity = self._id, expires_delta = timedelta(hours = 24))
+
+    @staticmethod
+    def verify_reset_token(token):
+        try:
+            userId = decode_token(token)['sub']
+        except Exception as e:
+            print(e)
+            return
+        return User.get_by_id(userId)
 
     @classmethod
     def get_by_email(cls, email):

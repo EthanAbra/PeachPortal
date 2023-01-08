@@ -330,6 +330,16 @@ def editCredentialsBatch(athleteId, field1, value1, field2, value2, field3, valu
         print(str(e))
         return None
 
+def editCredentialsPassword(athleteId, field1, value1, field2, value2, db = flaskdb):
+    print(f'editCredentialsPassword called with {athleteId}')
+    try:
+        result = db.credentials.update_one({'_id' : athleteId}, {'$set' : {field1 : value1, field2 : value2}})
+        print(result.modified_count)
+        return result.modified_count
+    except Exception as e:
+        print(str(e))
+        return None
+
 
 
 # ------------------------------------------------------------------- #
