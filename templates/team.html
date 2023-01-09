@@ -57,7 +57,7 @@
                                 <th scope="col">Side</th>
                                 <th scope="col">Class</th>
                                 <th scope="col">Active</th>
-                                <th scope="col">Permissions (shift to select multiple)</th>
+                                <th scope="col">Permissions</th>
                               </tr>
                             </thead>
                                 <tbody>
@@ -78,15 +78,13 @@
                                                 <input type="number" name="class_{{id}}" value="{{athlete['class']}}">
                                             </td>
                                             <td style="width: 15%;">
-                                                <input type="checkbox" id='active' name='active_{{id}}' {% if athlete['active'] %} checked {% endif %}>
-                                                <label for='active'>Active</label>
+                                                <label><input type="checkbox" id='active' name='active_{{id}}' {% if athlete['active'] %} checked {% endif %}> Active</label>
                                             </td>
                                             <td>
-                                                <select class='form-select' name='permissions_{{id}}' multiple>
-                                                    <option value="admin" {% if 'admin' in athlete["permissions"]  %} selected {% endif %}>Admin</option>
-                                                    <option value="cox" {% if 'cox' in athlete["permissions"]  %} selected {% endif %}>Coxswain/Coach</option>
-                                                    <option value="none" {% if 'admin' not in athlete["permissions"] %} selected {% endif %}>None</option>
-                                                </select>
+                                                <label><input type="checkbox" id='admin' name='admin_{{id}}' {% if 'admin' in athlete["permissions"]  %} checked {% endif %}> Admin (Edit Team, Athletes)</label>
+                                                <br>
+                                                <label><input type="checkbox" id='cox' name='cox_{{id}}' {% if 'cox' in athlete["permissions"]  %} checked {% endif %}> Coxswain/Coach (upload workouts, see all workouts & seats in workout)</label>
+                                                <p style = "color:gray" >Athletes without either permission can only see their own workouts and their own curves.</p>
                                             </td>
                                             <!-- <td>
                                                 <form action="/delete" method="POST">

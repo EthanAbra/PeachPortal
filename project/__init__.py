@@ -29,6 +29,8 @@ from tornado.ioloop import IOLoop
 from flask_mail import Mail, Message
 import os
 from flask_jwt_extended import JWTManager
+import socket
+import random
 
 Payload.max_decode_packets = 500
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -54,13 +56,24 @@ def create_app(debug = False):
         login_manager.init_app(app)
         socketio.init_app(app)
         bkapp = Application(FunctionHandler(my_gui))
-
         # This is so that if this app is run using something like "gunicorn -w 4" then
         # each process will listen on its own port
         if os.environ.get('ENV') == 'PRODUCTION':
-            sockets, port = bind_sockets("0.0.0.0", 5559)
+            while True:
+                try:
+                    tryport = random.randint(5555,6000)
+                    sockets, port = bind_sockets("0.0.0.0", tryport)
+                    break
+                except:
+                    pass
         else:
-            sockets, port = bind_sockets("localhost", 5559)
+             while True:
+                try:
+                    tryport = random.randint(5555,6000)
+                    sockets, port = bind_sockets("localhost", tryport)
+                    break
+                except:
+                    pass
         app._bokehport = port
         print("Bokeh port: ")
         print(app._bokehport)

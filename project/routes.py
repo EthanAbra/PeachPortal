@@ -662,22 +662,38 @@ def team():
     for teammate in list(teammates):
         athDict[teammate['_id']] = teammate
     sumModified = 0
+    
     if request.method == 'POST':
+        postDict = {}
         for key in list(request.form):
-            field, athleteId = key.split('_')
             newVal = request.form[key]
-            if athDict[int(athleteId)][field] == newVal:
-                continue
+            field, athleteId = key.split('_')
             if field == 'active':
-                sumModified += editAthlete(int(athleteId), field, True)
+                if newVal == "none":
+                    newVal = False
+                else:
+                    newVal = True
+            elif newVal == "none":
+                continue
+            oldDict = postDict.get(athleteId, {'permissions':[]})
+            if field == "cox" or field == "admin":
+                oldPerms = oldDict.get('permissions')
+                oldPerms.append(field)
+                oldDict['permissions'] = oldPerms               
             else:
-                sumModified += editAthlete(int(athleteId), field, newVal)
+                oldDict[field] = request.form[key]
+            postDict[athleteId] = oldDict
+        for thisId, post_athDict in postDict.items():
+            for field, val in post_athDict.items():
+                if athDict[int(thisId)][field] != val:
+                    sumModified += editAthlete(int(thisId), field, val)
+        if sumModified >0 :
+            return redirect('/team')
+                
+                        
 
-            if 'active' not in request.form:
-                sumModified += editAthlete(int(athleteId), 'active', False)
 
-    print(f'Team "{teamName}" edited by {athlete["first"]} {athlete["last"]}')
-
+        print(f'Team "{teamName}" edited by {athlete["first"]} {athlete["last"]}')
     html= render_template('team.html', athletes=teammates.rewind(), teamName=teamName)
     return make_response(html)
 
