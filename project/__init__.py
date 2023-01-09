@@ -57,7 +57,7 @@ def create_app(debug = False):
 
         # This is so that if this app is run using something like "gunicorn -w 4" then
         # each process will listen on its own port
-        sockets, port = bind_sockets("0.0.0.0", 5559)
+        sockets, port = bind_sockets("localhost", 5559)
         app._bokehport = port
         print("Bokeh port: ")
         print(app._bokehport)
@@ -67,20 +67,20 @@ def create_app(debug = False):
             asyncio.set_event_loop(asyncio.new_event_loop())
             #TODO: this makes me uncomfortable, but I don't know how to do it better
             bokeh_tornado = BokehTornado({'/bkapp': bkapp}, extra_websocket_origins=["localhost", "20.127.116.12", "www.peachrow.net"])
-            bokeh_http = HTTPServer(bokeh_tornado,  ssl_options={"certfile": './.domain.crt', "keyfile":'./.domain.rsa'})
+            bokeh_http = HTTPServer(bokeh_tornado)# ,  ssl_options={"certfile": './.domain.crt', "keyfile":'./.domain.rsa'})
             bokeh_http.add_sockets(sockets)
             server = BaseServer(IOLoop.current(), bokeh_tornado, bokeh_http)
             server.start()
             server.io_loop.start()
 
         # TODO: HIDE THESE BOIS
-        app.config['MAIL_SERVER'] = os.environ.get('mail_server')
-        app.config['MAIL_PORT'] = int(os.environ.get('mail_port'))
-        app.config['MAIL_USE_SSL'] = os.getenv("mail_use_ssl", 'False').lower() in ('true', '1', 't')
-        app.config['MAIL_USE_TLS'] = os.getenv("mail_use_tls", 'False').lower() in ('true', '1', 't')
-        app.config['MAIL_USERNAME'] = os.environ.get('mail_username')
-        app.config['MAIL_PASSWORD'] = os.environ.get('mail_password')
-        mail.init_app(app)
+        # app.config['MAIL_SERVER'] = os.environ.get('mail_server')
+        # app.config['MAIL_PORT'] = int(os.environ.get('mail_port'))
+        # app.config['MAIL_USE_SSL'] = os.getenv("mail_use_ssl", 'False').lower() in ('true', '1', 't')
+        # app.config['MAIL_USE_TLS'] = os.getenv("mail_use_tls", 'False').lower() in ('true', '1', 't')
+        # app.config['MAIL_USERNAME'] = os.environ.get('mail_username')
+        # app.config['MAIL_PASSWORD'] = os.environ.get('mail_password')
+        # mail.init_app(app)
         jwt.init_app(app)
         from threading import Thread
         Thread(target=bk_worker).start()

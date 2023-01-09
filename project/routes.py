@@ -212,7 +212,7 @@ def workout():
     seatnum = 0
     if isAdmin:
         startingview = overallView(workoutId)
-        piece_list = list(zip(meta['piece_list'], list(range(len(meta['piece_list'])))))
+        piece_list = list(zip(meta['piece_list'], list(range(len(meta['piece_list']))), [seatnum]*len(meta['piece_list'])))
     else:
         seatnum, startingview = myworkout(workoutId)
         startingview, piece_list = startingview
@@ -392,12 +392,13 @@ def workoutforseat():
                 in_dict = athDict.get(piece_athlete,None)
                 if in_dict is not None:
                     pl = in_dict
-                    pl.append(pieceIdx)
+                    pl.append((pieceIdx, paidx))
                     athDict[piece_athlete] = pl
                 else:
-                    athDict[piece_athlete] = [pieceIdx]
+                    athDict[piece_athlete] = [(pieceIdx, paidx)]
             
         my_pieces = athDict[athlete_name]
+        print(my_pieces)
         return individual_workout(elite, seat_num, meta, False, piece_num, my_pieces)[0]
     return individual_workout(elite, seat_num, meta, False, piece_num, None, True)[0]
     
@@ -442,12 +443,13 @@ def myworkout(internalId = None):
             in_dict = athDict.get(piece_athlete,None)
             if in_dict is not None:
                 pl = in_dict
-                pl.append(pieceIdx)
+                pl.append((pieceIdx, paidx))
                 athDict[piece_athlete] = pl
             else:
-                athDict[piece_athlete] = [pieceIdx]
+                athDict[piece_athlete] = [(pieceIdx, paidx)]
         
     my_pieces = athDict[athlete['namestring']]
+    print(my_pieces)
     if internalId:
         internal = True
 
@@ -475,16 +477,8 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
         time_resamp += [dat3[:,0]]
         theta3 += [dat3[:,1]]
         thetadot3 += [dat3[:,2]]
-    ax[0].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*elite.numstrokes + 0.2722, .02), color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
-    ax[0].xaxis.axis_label='Gate Angle °'
-    ax[0].yaxis.axis_label='Gate Force (N)'
-    average_aper_data = elite.get_average_aper_data()
-    label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
-    text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
-    (average_aper_data[1+seat_num],average_aper_data[17+seat_num], average_aper_data[33+seat_num], average_aper_data[121+seat_num]),
-        border_line_color='black', border_line_alpha=.5,
-        background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
-    ax[0].add_layout(label)
+    
+    average_aper_data = plot_superimposed(elite, seat_num, colors, ax, theta3, thetadot3)
 
     max_force_pct = average_aper_data[121+seat_num]
 
@@ -582,15 +576,7 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
     split = elite.get_rating_chunks()
 
     for idx, one_split in enumerate(split):
-        split_svd = peachhelp.svd_module(elite, 100, seat_num, (one_split[0], one_split[1]))
-        peachhelp.plot_vector(split_svd['mean'], ax=cx, color=Oranges9[idx], legend_title = "Stroke over Time",
-        label="Stroke %d-%d, avg s/m: %.1f, avg W: %.1fW" 
-        %(one_split[0]+1, one_split[1]+1, 
-        elite.get_average_aper_data(one_split)[129], 
-        elite.get_average_aper_data(one_split)[1+seat_num]), 
-        label2 = "Stroke %d-%d, avg Max Force: %.2f%%" 
-        %(one_split[0]+1, one_split[1]+1, 
-        elite.get_average_aper_data(one_split)[121+seat_num]))
+        plot_splits(elite, seat_num, cx, idx, one_split)
 
 
     ax[1].legend.click_policy = "hide"
@@ -611,9 +597,9 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
     # TODO: only render the pieces that belong to this athlete
     piece_loop = []
     if piecers is None:
-        piece_loop = list(zip(meta['piece_list'], list(range(len(meta['piece_list'])))))
+        piece_loop = list(zip(meta['piece_list'], list(range(len(meta['piece_list']))), [seat_num]*len(meta['piece_list'])))
     else:
-        piece_loop = [(meta['piece_list'][i], i) for i in piecers]
+        piece_loop = [(meta['piece_list'][pieceIdx], pieceIdx, seat_spot) for (pieceIdx, seat_spot) in piecers]
 
 
     response = gen_indv_response(seat_num, meta, internal, piece_num, multi_piece, piece_loop, ad)
@@ -750,7 +736,7 @@ def splitPieces():
 
     teamId = athlete['teamId']
         
-    script = server_document('https://www.peachrow.net:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId, "teamId": teamId})
+    script = server_document('http://localhost:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId, "teamId": teamId})
     
     
     return render_template("embed.html", script=script, template="Flask")
@@ -761,13 +747,13 @@ def gen_indv_response(seat_num, meta, internal, piece_num, multi_piece, piece_lo
     if not internal:
         if multi_piece:
             response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
-            for piece, num in piece_loop:
+            for piece, num, s_num in piece_loop:
                 response +=  '<li class="nav-item">'  
                 response += '<button class="btn btn-outline-info'
                 if num == piece_num:
                     response += ' active" role = "button" aria-pressed = "true'
                 response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s=' 
-                response += str(seat_num) + '&piece=' + str(num)
+                response += str(s_num) + '&piece=' + str(num)
                 if ad:
                     response+= '&ad=1'
                 response += '" hx-target = "#raw">' + str(piece) + '</button>' 
@@ -902,3 +888,30 @@ def gen_overall_response(internalId, piece_num, meta, multi_piece):
             response += '</li>'
         response += '</ul> </div>'
     return response
+
+
+
+def plot_splits(elite, seat_num, cx, idx, one_split):
+    split_svd = peachhelp.svd_module(elite, 100, seat_num, (one_split[0], one_split[1]))
+    peachhelp.plot_vector(split_svd['mean'], ax=cx, color=Oranges9[idx], legend_title = "Stroke over Time",
+        label="Stroke %d-%d, avg s/m: %.1f, avg W: %.1fW" 
+        %(one_split[0]+1, one_split[1]+1, 
+        elite.get_average_aper_data(one_split)[129], 
+        elite.get_average_aper_data(one_split)[1+seat_num]), 
+        label2 = "Stroke %d-%d, avg Max Force: %.2f%%" 
+        %(one_split[0]+1, one_split[1]+1, 
+        elite.get_average_aper_data(one_split)[121+seat_num]))
+    
+    
+def plot_superimposed(elite, seat_num, colors, ax, theta3, thetadot3):
+    ax[0].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*elite.numstrokes + 0.2722, .02), color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
+    ax[0].xaxis.axis_label='Gate Angle °'
+    ax[0].yaxis.axis_label='Gate Force (N)'
+    average_aper_data = elite.get_average_aper_data()
+    label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
+    text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
+    (average_aper_data[1+seat_num],average_aper_data[17+seat_num], average_aper_data[33+seat_num], average_aper_data[121+seat_num]),
+        border_line_color='black', border_line_alpha=.5,
+        background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
+    ax[0].add_layout(label)
+    return average_aper_data

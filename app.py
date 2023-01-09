@@ -205,4 +205,4 @@ app = create_app(debug=True)
 
 
 if __name__ == "main":
-    socketio.run(app)
+    socketio.run(app = app, host = "0.0.0.0")
