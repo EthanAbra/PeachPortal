@@ -658,12 +658,16 @@ def team():
     teamId = athlete['teamId']
     teamName = queryTeam(teamId)['name']
     teammates = getAllAthletes(teamId)
-
+    athDict = {}
+    for teammate in list(teammates):
+        athDict[teammate['_id']] = teammate
     sumModified = 0
     if request.method == 'POST':
         for key in list(request.form):
             field, athleteId = key.split('_')
             newVal = request.form[key]
+            if athDict[int(athleteId)][field] == newVal:
+                continue
             if field == 'active':
                 sumModified += editAthlete(int(athleteId), field, True)
             else:
@@ -674,7 +678,7 @@ def team():
 
     print(f'Team "{teamName}" edited by {athlete["first"]} {athlete["last"]}')
 
-    html= render_template('team.html', athletes=teammates, teamName=teamName)
+    html= render_template('team.html', athletes=teammates.rewind(), teamName=teamName)
     return make_response(html)
 
 

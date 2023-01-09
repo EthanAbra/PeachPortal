@@ -57,7 +57,7 @@
                                 <th scope="col">Side</th>
                                 <th scope="col">Class</th>
                                 <th scope="col">Active</th>
-                                <th scope="col">Permissions</th>
+                                <th scope="col">Permissions (shift to select multiple)</th>
                               </tr>
                             </thead>
                                 <tbody>
@@ -65,8 +65,7 @@
                                     {% set id = athlete['_id'] %}
                                         <tr>
                                             <th style="width: 35%;" scope="row">
-                                                <input type="text" name='first_{{id}}' value="{{athlete['first']}}" />
-                                                <input type="text" name='last_{{id}}' value="{{athlete['last']}}" />
+                                                <input type="text" name='namestring_{{id}}' value="{{athlete['namestring']}}" />
                                             </th>
                                             <td style="width: 15%;">
                                                 <select class='form-control' name='side_{{id}}'>
@@ -83,9 +82,9 @@
                                                 <label for='active'>Active</label>
                                             </td>
                                             <td>
-                                                <select class='form-control' name='permissions_{{id}}'>
+                                                <select class='form-select' name='permissions_{{id}}' multiple>
                                                     <option value="admin" {% if 'admin' in athlete["permissions"]  %} selected {% endif %}>Admin</option>
-                                                    <option value="coxswain" {% if 'cox' in athlete["permissions"]  %} selected {% endif %}>Coxswain/Coach</option>
+                                                    <option value="cox" {% if 'cox' in athlete["permissions"]  %} selected {% endif %}>Coxswain/Coach</option>
                                                     <option value="none" {% if 'admin' not in athlete["permissions"] %} selected {% endif %}>None</option>
                                                 </select>
                                             </td>
