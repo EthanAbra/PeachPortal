@@ -85,6 +85,7 @@
                                             <td>
                                                 <select class='form-control' name='permissions_{{id}}'>
                                                     <option value="admin" {% if 'admin' in athlete["permissions"]  %} selected {% endif %}>Admin</option>
+                                                    <option value="coxswain" {% if 'cox' in athlete["permissions"]  %} selected {% endif %}>Coxswain/Coach</option>
                                                     <option value="none" {% if 'admin' not in athlete["permissions"] %} selected {% endif %}>None</option>
                                                 </select>
                                             </td>
