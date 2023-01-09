@@ -28,8 +28,9 @@ auth_bp = Blueprint(
 
 def send_email(app, msg):
     with app.app_context():
-        mail.send(msg)
-
+        if os.environ.get('ENV') == 'PRODUCTION':
+            mail.send(msg)
+        pass
 
 """ renders the login page and processes user logins"""
 @auth_bp.route('/login', methods=['GET', 'POST'])
