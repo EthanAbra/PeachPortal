@@ -63,21 +63,26 @@ def write_complete(data):
             print(f"Match string: {match!s}")
             if str(match).startswith("Microsoft Excel 2007"):
                 return True
+        return False
 
     
     if not mimewrap(data['serverfilename']):
         os.remove(data['serverfilename'])
-        return False, data['serverfilename']
+        socketio.emit('peach processed',{'ack':False, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename']})
+        return
+
 
     success, workout = xlsxRead(data['serverfilename'], teamId)
     os.remove(data['serverfilename'])
 
     if not success:
-        return False, data['serverfilename']
+        socketio.emit('peach processed',{'ack':False, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename']})
+        return
 
     addedId = addWorkout(workout, teamId)
     if not addedId:
-        return False, data['serverfilename']
+        socketio.emit('peach processed',{'ack':False, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename']})
+        return
     else:
         print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
     socketio.emit('peach processed',{'ack':True, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename'], 'addedId': addedId, 'teamId' :teamId, 'athleteList':workout['athlete_list']})
@@ -179,22 +184,26 @@ def write_complete(data):
             print(f"Match string: {match!s}")
             if str(match).startswith("Microsoft Excel 2007"):
                 return True
+        return False
 
     
     if not mimewrap(data['serverfilename']):
         os.remove(data['serverfilename'])
-        return False, data['serverfilename']
+        socketio.emit('peach processed',{'ack':False, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename']})
+        return
 
     success, workout = xlsxReadUnsplit(data['serverfilename'], teamId)
 
     if not success:
         os.remove(data['serverfilename'])
-        return False, data['serverfilename']
+        socketio.emit('peach processed',{'ack':False, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename']})
+        return
 
     addedId = addUnsplit(workout, teamId, data['serverfilename'])
     if not addedId:
         os.remove(data['serverfilename'])
-        return False, data['serverfilename']
+        socketio.emit('peach processed',{'ack':False, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename']})
+        return
     else:
         print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
     socketio.emit('unsplit processed',{'ack':True, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename'], 'addedId': addedId, 'teamId' :teamId, 'athleteList':workout['athlete_list']})
