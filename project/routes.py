@@ -736,7 +736,10 @@ def splitPieces():
 
     teamId = athlete['teamId']
         
-    script = server_document('http://localhost:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId, "teamId": teamId})
+    if os.environ.get('ENV') == 'PRODUCTION':   
+        script = server_document('https://www.peachrow.net:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId, "teamId": teamId})
+    else:
+        script = server_document('http://localhost:%d/bkapp' % current_app._bokehport, arguments={"id": unsplitId, "teamId": teamId})
     
     
     return render_template("embed.html", script=script, template="Flask")
