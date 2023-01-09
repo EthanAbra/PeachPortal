@@ -82,7 +82,7 @@ def valid_athletes(addedId, teamId, athleteMap):
                     error += 'failed to add user cred'
 
                 # create athlete document from entered info
-                permissions = ['']
+                permissions = []
 
                 athleteJson = {
                     "_id" : newId,

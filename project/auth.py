@@ -132,7 +132,7 @@ def signup():
                     flash('failed to add user')
                 else:
                     # create athlete document from entered info
-                    permissions = ['']
+                    permissions = []
                     if side == 'cox':
                         permissions.append('cox')
 
