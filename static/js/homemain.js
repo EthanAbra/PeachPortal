@@ -7,6 +7,31 @@ var socketio = io();
 var dropzone = document.getElementById('dropzone');
 var dropzoneunsplit = document.getElementById('dropzoneunsplit');
 
+dropzoneClicker = function(filelist){
+    for(var i = 0; i < filelist.length; i++) {
+        filediv = document.createElement('div');
+        filename = document.createElement('div');
+
+        filename.classList.add('filename');
+        filename.innerHTML = filelist[i].name;
+
+        progress = document.createElement('div');
+        progress.classList.add('file-progress');
+        progress.classList.add('in-progress');
+
+        filediv.appendChild(filename);
+        filediv.appendChild(progress);
+
+
+        document.getElementById('filelist').appendChild(filediv);
+        files.push({
+            file: filelist[i],
+            progress: progress,
+            done: false
+        });
+    }
+}
+
 dropzone.ondragover = function(e) {
     e.preventDefault();
 }
@@ -221,6 +246,32 @@ dropzoneunsplit.ondrop = function(e) {
         });
     }
 }
+
+dropzoneunsplitClicker = function(filelist){
+    for(var i = 0; i < filelist.length; i++) {
+        filediv = document.createElement('div');
+        filename = document.createElement('div');
+
+        filename.classList.add('filename');
+        filename.innerHTML = filelist[i].name;
+
+        progress = document.createElement('div');
+        progress.classList.add('file-progress');
+        progress.classList.add('in-progress');
+
+        filediv.appendChild(filename);
+        filediv.appendChild(progress);
+
+
+        document.getElementById('unsplitfilelist').appendChild(filediv);
+        unsplitfiles.push({
+            file: filelist[i],
+            progress: progress,
+            done: false
+        });
+    }
+}
+
 
 // upload button
 var unsplitupload = document.getElementById('unsplitupload');
