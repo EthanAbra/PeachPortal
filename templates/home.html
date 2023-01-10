@@ -13,6 +13,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
     </head>
     <body>
+
         <div class="container-fluid">
             <nav class="navbar navbar-expand-lg navbar-light" style="background-color: transparent">
                 <div class="container-fluid">
@@ -81,7 +82,8 @@
                             </div>
                             <div class="col-4">
                                 <div id="dropzone">
-                                    Drop files here! (.xlsx)
+                                    <input type="file" class = "file_upload" onchange = "dropzoneClicker(this.files)" multiple/>
+                                    Drop files (or click) here! (.xlsx)
                                 </div>
                                 <button id="upload" class = "btn btn-primary btn-block">Upload files</button>
                             </div>
@@ -102,9 +104,10 @@
                             </div>
                             <div class="col-4">
                                 <div id="dropzoneunsplit">
-                                    Drop a practice - before splitting to pieces - here! (.xlsx)
+                                    <input type="file" class = "file_uploadunsplit" onchange = "dropzoneunsplitClicker(this.files)" multiple/>
+                                    Drop practices (or click) - before splitting into pieces - here! (.xlsx)
                                 </div>
-                                <button id="unsplitupload" class = "btn btn-primary btn-block">Upload file</button>
+                                <button id="unsplitupload" class = "btn btn-primary btn-block">Upload files</button>
                             </div>
                         </div>
                         <div id="unsplitfilelist"></div>

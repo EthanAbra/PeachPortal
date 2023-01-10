@@ -72,11 +72,11 @@
                     {%else%}
                     {% if loop.index0 == 0 %}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
+                        <button class="btn btn-outline-info active" aria-pressed="true" hx-post= "/workoutseat?w={{workout['_id']}}&s={{piece[2]}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%else%}
                     <li class="nav-item">
-                        <button class="btn btn-outline-info" hx-post= "/workoutseat?w={{workout['_id']}}&s={{seatnum}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
+                        <button class="btn btn-outline-info" hx-post= "/workoutseat?w={{workout['_id']}}&s={{piece[2]}}&piece={{ piece[1] }}" hx-target = "#raw">{{piece[0]}}</button> 
                     </li>
                     {%endif%}
                     {%endif%}

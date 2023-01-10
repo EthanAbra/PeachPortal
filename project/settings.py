@@ -2,7 +2,6 @@ import os
 from flask import Flask
 from dotenv import load_dotenv
 
-
 TEMPLATE_DIR = '.././templates'
 STATIC_DIR = '.././static'
 
@@ -30,3 +29,6 @@ app.config['SECRET_KEY'] = app.secret_key
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024* 20
 
 app.config['MONGO_URI'] = CONNECTION_STRING
+
+
+

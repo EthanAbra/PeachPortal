@@ -1,8 +1,4 @@
 from flask_pymongo import PyMongo
-import datetime
-from pprint import pprint
-import os 
-import bcrypt
 import pickle
 import random
 import certifi
@@ -325,6 +321,16 @@ def editCredentialsBatch(athleteId, field1, value1, field2, value2, field3, valu
     print(f'editCredentialsBatch called with {athleteId}')
     try:
         result = db.credentials.update_one({'_id' : athleteId}, {'$set' : {field1 : value1, field2 : value2, field3 : value3}})
+        return result.modified_count
+    except Exception as e:
+        print(str(e))
+        return None
+
+def editCredentialsPassword(athleteId, field1, value1, field2, value2, db = flaskdb):
+    print(f'editCredentialsPassword called with {athleteId}')
+    try:
+        result = db.credentials.update_one({'_id' : athleteId}, {'$set' : {field1 : value1, field2 : value2}})
+        print(result.modified_count)
         return result.modified_count
     except Exception as e:
         print(str(e))

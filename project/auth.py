@@ -1,17 +1,19 @@
-from .database import getCredentials, queryAthleteByName, getCredentialsbyId, queryTeam, editCredentialsBatch
-from .database import editCredentials, addAthlete, addTeam, addCredentialsJson, getAllAthletes
-
-from flask import Flask, Blueprint, request, make_response, redirect, url_for, Response, current_app
-from flask import render_template, Markup, flash, session, jsonify, abort
-from flask_login import current_user, login_required, logout_user, login_user, UserMixin
-from . import login_manager
+from .database import getCredentials, getCredentialsbyId, queryTeam, editCredentialsPassword
+from .database import addAthlete, addTeam, getAllAthletes, queryAthlete, editCredentialsBatch
+from datetime import timedelta
+from flask import Blueprint, request, make_response, redirect, url_for, current_app
+from flask import render_template, flash
+from flask_login import login_required, logout_user, login_user
+from . import mail
 import bcrypt
 import random
-import uuid
 import certifi
 from .models import User
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
+from flask_mail import Message
+from threading import Thread
+import os
 
 
 ca = certifi.where()
@@ -23,6 +25,12 @@ auth_bp = Blueprint(
 #-----------------------------------------------------------------------
 """ Authentication methods """
 #-----------------------------------------------------------------------
+
+def send_email(app, msg):
+    with app.app_context():
+        if os.environ.get('ENV') == 'PRODUCTION':
+            mail.send(msg)
+        pass
 
 """ renders the login page and processes user logins"""
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -38,7 +46,7 @@ def login():
 
         if User.login_valid(email, password):
             loguser = User(find_user["_id"], find_user["email"], find_user["pwHash"], find_user["salt"])
-            login_user(loguser, force=True)
+            login_user(loguser, force=True, duration=timedelta(hours=2))
             print(f'{email} logged in, new session')
             # print(res)
             return redirect('/home')
@@ -124,7 +132,7 @@ def signup():
                     flash('failed to add user')
                 else:
                     # create athlete document from entered info
-                    permissions = ['']
+                    permissions = []
                     if side == 'cox':
                         permissions.append('cox')
 
@@ -177,9 +185,61 @@ def register():
     html = render_template('register.html', error=error)
     return make_response(html)
 
-#-----------------------------------------------------------------------
-""" flask_login methods """
-#-----------------------------------------------------------------------
+
+@auth_bp.route('/forgotpassword', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['username']
+
+        checkIfNewEmail = User.get_by_email(email)
+
+        if checkIfNewEmail is not None:
+            athlete = queryAthlete(checkIfNewEmail._id)
+            token = checkIfNewEmail.get_reset_token()
+            print(f'Forgot password for {email}')
+            msg = Message()
+            msg.subject = "[PeachPortal] Password Reset Link (expires in 24 hours)"
+            msg.recipients = [email]
+            msg.sender = 'noreply@mail.peachrow.net'
+            msg.body = ''
+            reset_url = url_for('auth_bp.new_password', email=email, token=token, _external=True)
+            msg.html = render_template('forgotpasswordemail.html', first = athlete['first'], reset_url = reset_url)
+            msg.attach('peach.png','image/png', open(os.path.join(os.getcwd(), 'static/peach.png'), 'rb').read(), 'inline', headers=[['Content-ID','<PeachLogo>'],])
+            Thread(target=send_email, args=(current_app._get_current_object(), msg)).start()
+
+        flash("Recovery email sent if email is in our database. Don't forget to check spam")
+
+    html = render_template('forgotpassword.html')
+    return make_response(html)    
 
 
-""" loads the user using the 'email' cookie set during login"""
+@auth_bp.route('/resetverified', methods=['GET', 'POST'])
+def new_password():
+    token = request.args.get('token')
+    email = request.args.get('email')
+
+
+    if request.method == 'POST':
+        token = request.form['token']
+        new_password = bytes(request.form['pass'], 'utf-8')
+        user = User.verify_reset_token(token)
+
+        if user is not None:
+
+            salt = bcrypt.gensalt()
+            pwhash = bcrypt.hashpw(new_password, salt)
+
+            count = 0
+
+            count += editCredentialsPassword(int(user._id), "pwHash", pwhash, "salt", salt)
+            if count < 1:
+                print('failed to update user credentials')
+                flash('failed. please try again')
+
+            flash("Password Sucessfully Reset! Redirecting to Login...")
+            return redirect('/login')
+        else:
+            flash("Invalid token. Try another password reset link.")
+
+    html = render_template('resetverified.html', token = token, email = email)
+    return make_response(html)    
