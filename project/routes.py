@@ -1,31 +1,20 @@
-from polyfile.magic import MagicMatcher
-from bokeh.models import Label, LabelSet, PolyAnnotation, Text, Range1d, ColumnDataSource
-import seaborn as sns
-from bokeh.layouts import layout, grid, gridplot, row
-from bokeh.plotting import show
+from bokeh.models import Label, PolyAnnotation, Text, Range1d, ColumnDataSource
+from bokeh.layouts import layout, grid, gridplot
 from bokeh.embed import components, server_document
 from bokeh.plotting import figure
 from bokeh.palettes import Oranges9
 from bokeh.resources import INLINE
-import json
 import os
-from flask_login import current_user, login_required, logout_user
-import uuid
-import polyfile
+from flask_login import current_user, login_required
 from . import peachhelp
-from flask import Flask, Blueprint, request, make_response, redirect, url_for, Response, current_app
-from flask import render_template, Markup, flash, session, jsonify, abort
-from flask import current_app, g
+from flask import Blueprint, request, make_response, redirect, current_app
+from flask import render_template, current_app
 from .database import getAllAthletes, getAllWorkouts, queryAthlete, queryWorkoutData, queryTeam, queryUnsplitMeta
 from .database import queryWorkoutMeta, deleteWorkout, removeWorkoutFromAthlete, editAthlete, editWorkout, deleteUnsplit
 from .database import getAllUnsplits
 import numpy as np
 from . import socketio
-from . import login_manager
-from .models import User
-from . import peach
 import collections
-from bokeh.server.util import bind_sockets
 
 unpickledWorkouts = collections.defaultdict()
 

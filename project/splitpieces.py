@@ -1,10 +1,8 @@
 import numpy as np
 from bokeh.plotting import figure
 from bokeh.layouts import layout, row, column, Spacer, gridplot, grid
-from bokeh.models import CustomJS, RangeSlider, BoxAnnotation, Button, Dropdown, TextInput, AutocompleteInput, OpenURL, Div
+from bokeh.models import CustomJS, RangeSlider, BoxAnnotation, Button, TextInput, AutocompleteInput, Div
 from bokeh.models.sources import ColumnDataSource
-from bokeh.application import Application
-from bokeh.application.handlers import FunctionHandler
 from .database import queryUnsplitData, addWorkout, getAllAthletes, queryUnsplitMeta, getAllWorkouts, queryWorkoutMeta
 from .database import addWorkoutToAthlete, deleteWorkout, addCredentials, getCredentialsbyId, addAthlete, deleteUnsplit
 import os
