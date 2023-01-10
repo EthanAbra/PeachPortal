@@ -11,11 +11,9 @@ Princeton University
 
 __all__ = ["PeachData"]
 
-import pandas as pd
 import numpy as np
-from datetime import date
 from dateutil import parser
-from itertools import groupby, chain
+from itertools import groupby
 
 
 class PeachData():

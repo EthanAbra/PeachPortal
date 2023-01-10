@@ -1,8 +1,4 @@
 from flask_pymongo import PyMongo
-import datetime
-from pprint import pprint
-import os 
-import bcrypt
 import pickle
 import random
 import certifi

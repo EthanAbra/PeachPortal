@@ -1,22 +1,12 @@
 from gevent import monkey
 monkey.patch_all()
-
-from flask import Flask, g, current_app
-from flask_login import LoginManager, current_user
+from flask_login import LoginManager
 import os
 import urllib3
-import uuid
-import polyfile
 import random
-import logging
-from .xlsxMethods import xlsxRead
-from bson.binary import Binary
 from flask_socketio import SocketIO
 from .settings import app
-import pymongo
-from pymongo import MongoClient
 from engineio.payload import Payload
-import certifi
 from bokeh.server.server import BaseServer
 from bokeh.server.tornado import BokehTornado
 from bokeh.server.util import bind_sockets
@@ -26,10 +16,9 @@ from .splitpieces import my_gui
 import asyncio
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
-from flask_mail import Mail, Message
+from flask_mail import Mail
 import os
 from flask_jwt_extended import JWTManager
-import socket
 import random
 
 Payload.max_decode_packets = 500

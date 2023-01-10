@@ -2,11 +2,6 @@ import collections
 from numpy import trapz
 from numpy.polynomial import Polynomial
 import numpy as np
-from bokeh.layouts import layout, grid
-from bokeh.plotting import show
-from bokeh.embed import components
-from bokeh.plotting import figure
-from bokeh.resources import INLINE
 from bokeh.models import Span, Label, LabelSet, PolyAnnotation
 
 def posMult(num):

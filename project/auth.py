@@ -1,17 +1,17 @@
-from .database import getCredentials, getCredentialsbyId, queryTeam, editCredentialsBatch, editCredentialsPassword
-from .database import editCredentials, addAthlete, addTeam, addCredentialsJson, getAllAthletes, queryAthlete
+from .database import getCredentials, getCredentialsbyId, queryTeam, editCredentialsPassword
+from .database import addAthlete, addTeam, getAllAthletes, queryAthlete, editCredentialsBatch
 from datetime import timedelta
-from flask import Flask, Blueprint, request, make_response, redirect, url_for, Response, current_app
-from flask import render_template, Markup, flash, session, jsonify, abort
-from flask_login import current_user, login_required, logout_user, login_user, UserMixin
-from . import login_manager, mail
+from flask import Blueprint, request, make_response, redirect, url_for, current_app
+from flask import render_template, flash
+from flask_login import login_required, logout_user, login_user
+from . import mail
 import bcrypt
 import random
 import certifi
 from .models import User
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
-from flask_mail import Mail, Message
+from flask_mail import Message
 from threading import Thread
 import os
 

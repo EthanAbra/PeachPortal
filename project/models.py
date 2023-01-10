@@ -3,9 +3,7 @@ from .database import addCredentialsJson
 import bcrypt
 from flask import session
 from flask_login import UserMixin
-from . import login_manager, jwt
-import uuid
-import os
+from . import login_manager
 from datetime import timedelta
 from flask_jwt_extended import create_access_token, decode_token
 
