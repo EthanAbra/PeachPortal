@@ -31,4 +31,6 @@ fuzzywuzzy==0.18.0
 python-Levenshtein
 PyJWT==2.6.0
 Flask-Mail==0.9.1
-flask-jwt-extended
+flask-jwt-extended==4.4.4
+Flask_Caching==2.0.1
+boto3==1.26.47
