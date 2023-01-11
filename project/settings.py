@@ -1,7 +1,6 @@
 import os
 from flask import Flask
 from dotenv import load_dotenv
-from flask_mail import Mail, Message
 
 TEMPLATE_DIR = '.././templates'
 STATIC_DIR = '.././static'

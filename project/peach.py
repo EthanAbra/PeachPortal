@@ -4,18 +4,16 @@
 """
 peach - load Excel files produced from Peach rowing data
 
-Clancy Rowley
+Clancy Rowley, modified by ea10
 1 Nov 2021
 Princeton University
 """
 
 __all__ = ["PeachData"]
 
-import pandas as pd
 import numpy as np
-from datetime import date
 from dateutil import parser
-from itertools import groupby, chain
+from itertools import groupby
 
 
 class PeachData():
@@ -178,29 +176,3 @@ class PeachData():
         pairs = [(r_small[i][1], r_small[i+1][1]) for i in range(len(r_small)-1)]
 
         return pairs
-
-
-
-
-
-
-    
-
-def main():
-    fname = "./test_sheets/Uni M8+ 2015Apr18 2km race.xlsx"
-    elite = PeachData(fname)
-    print("%d strokes" % elite.numstrokes)
-    # print(elite.aper_headers)
-    print(elite.athlete_map)
-    print("DATE")
-    print(elite.date)
-    print(elite.misc_info)
-    # print(elite.get_boat_power())
-    print(elite.aper_headers[129])
-    print(elite.get_rating_chunks())
-    # print(elite.resampled_boat_stroke(75, [1,9,17], 100))
-    # print(elite.start_times)
-    # print(elite.data[:5])
-
-if __name__ == "__main__":
-    main()

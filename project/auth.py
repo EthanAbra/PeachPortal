@@ -1,17 +1,17 @@
-from .database import getCredentials, getCredentialsbyId, queryTeam, editCredentialsBatch, editCredentialsPassword
-from .database import editCredentials, addAthlete, addTeam, addCredentialsJson, getAllAthletes, queryAthlete
+from .database import getCredentials, getCredentialsbyId, queryTeam, editCredentialsPassword
+from .database import addAthlete, addTeam, getAllAthletes, queryAthlete, editCredentialsBatch
 from datetime import timedelta
-from flask import Flask, Blueprint, request, make_response, redirect, url_for, Response, current_app
-from flask import render_template, Markup, flash, session, jsonify, abort
-from flask_login import current_user, login_required, logout_user, login_user, UserMixin
-from . import login_manager, mail
+from flask import Blueprint, request, make_response, redirect, url_for, current_app
+from flask import render_template, flash
+from flask_login import login_required, logout_user, login_user
+from . import mail
 import bcrypt
 import random
 import certifi
 from .models import User
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
-from flask_mail import Mail, Message
+from flask_mail import Message
 from threading import Thread
 import os
 
@@ -142,10 +142,6 @@ def signup():
                         "last" : last,
                         "namestring": first+ " " + last,
                         "permissions" : permissions,
-                        "prs" : {
-                            "2000m" : '-1',
-                            "6000m" : '-1'
-                        },
                         "workouts" : [],
                         "side" : side,
                         "class" : classYr,
@@ -204,7 +200,8 @@ def forgot_password():
             msg.body = ''
             reset_url = url_for('auth_bp.new_password', email=email, token=token, _external=True)
             msg.html = render_template('forgotpasswordemail.html', first = athlete['first'], reset_url = reset_url)
-            msg.attach('peach.png','image/png', open(os.path.join(os.getcwd(), 'static/peach.png'), 'rb').read(), 'inline', headers=[['Content-ID','<PeachLogo>'],])
+            msg.attach('peach.png','image/png', open(os.path.join(os.getcwd(), 'static/peach.png'), 'rb').read(),
+                       'inline', headers=[['Content-ID','<PeachLogo>'],])
             Thread(target=send_email, args=(current_app._get_current_object(), msg)).start()
 
         flash("Recovery email sent if email is in our database. Don't forget to check spam")
