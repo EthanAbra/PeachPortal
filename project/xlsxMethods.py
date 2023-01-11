@@ -36,7 +36,7 @@ def read_excel(path: str, sheetid:int) -> pd.DataFrame:
     return df
 
 
-def xlsxRead(filename, teamId):
+def xlsxRead(filename):
 
     print("xlsxread called")
 
@@ -78,7 +78,7 @@ def xlsxRead(filename, teamId):
 
 
     athlete_map = [list(data[0].get_athletes())]
-    for datIdx, datum in enumerate(data[1:]):
+    for datum in data[1:]:
         if len(list(datum.get_athletes()))<len(athlete_map[-1]):
             athlete_map.append(athlete_map[-1])
         else:
@@ -86,8 +86,8 @@ def xlsxRead(filename, teamId):
             
     workoutDict = {
         '_id' : nextId,
-        'title' : str(filename),
-        'date' : data[0].get_date(),
+        'title' : f"workout on {data[0].date.strftime('%d/%m/%Y')}",
+        'date' : data[0].date,
         'peach_data' : Binary(peach_bytes),
         'notes' : list(data[0].get_notes()),
         'athlete_list': athlete_map,
@@ -97,11 +97,9 @@ def xlsxRead(filename, teamId):
     print('read xlsx file')
     return True, workoutDict
 
-def xlsxReadUnsplit(filename, teamId):
+def xlsxReadUnsplit(filename):
 
     print("xlsxreadunsplit called")
-
-
 
     parsed = read_excel(filename, 1)
 
@@ -124,7 +122,7 @@ def xlsxReadUnsplit(filename, teamId):
 
     workoutDict = {
         '_id' : nextId,
-        'title' : str(filename),
+        'title' : f"workout on {data.date.strftime('%d/%m/%Y')}",
         'date': data.date,
         'notes': list(data.misc_info),
         'peach_data' : Binary(peach_bytes),

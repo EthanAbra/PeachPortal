@@ -142,10 +142,6 @@ def signup():
                         "last" : last,
                         "namestring": first+ " " + last,
                         "permissions" : permissions,
-                        "prs" : {
-                            "2000m" : '-1',
-                            "6000m" : '-1'
-                        },
                         "workouts" : [],
                         "side" : side,
                         "class" : classYr,
@@ -204,7 +200,8 @@ def forgot_password():
             msg.body = ''
             reset_url = url_for('auth_bp.new_password', email=email, token=token, _external=True)
             msg.html = render_template('forgotpasswordemail.html', first = athlete['first'], reset_url = reset_url)
-            msg.attach('peach.png','image/png', open(os.path.join(os.getcwd(), 'static/peach.png'), 'rb').read(), 'inline', headers=[['Content-ID','<PeachLogo>'],])
+            msg.attach('peach.png','image/png', open(os.path.join(os.getcwd(), 'static/peach.png'), 'rb').read(),
+                       'inline', headers=[['Content-ID','<PeachLogo>'],])
             Thread(target=send_email, args=(current_app._get_current_object(), msg)).start()
 
         flash("Recovery email sent if email is in our database. Don't forget to check spam")
