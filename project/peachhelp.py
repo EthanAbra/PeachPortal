@@ -808,6 +808,7 @@ def tech_tree(early_build, max_force_pct, sloppy_bladework, tail_off, double_dip
         analysis_pts.append("Your blade is entering before accelerating to stern")
         analysis_pts.append("Try not to \"pull\" the handle at the catch.")
         analysis_pts.append("Relax and elongate your upper body")
+    return analysis_pts
 
 
 def gen_athlete_dict(athleteMap):
