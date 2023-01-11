@@ -45,8 +45,6 @@ def about():
 def home():
 
     user = current_user
-    print(user)
-    print(vars(user))
     if current_user.is_anonymous():
         print("anon!")
         return redirect('/login')

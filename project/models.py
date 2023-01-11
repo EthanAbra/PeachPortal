@@ -4,6 +4,7 @@ import bcrypt
 from flask import session
 from flask_login import UserMixin
 from . import login_manager
+from . import cache
 from datetime import timedelta
 from flask_jwt_extended import create_access_token, decode_token
 
@@ -37,12 +38,14 @@ class User(UserMixin):
         return User.get_by_id(userId)
 
     @classmethod
+    @cache.memoize(50)
     def get_by_email(cls, email):
         data = getCredentials(email)
         if data is not None:
             return cls(**data)
 
     @classmethod
+    @cache.memoize(50)
     def get_by_id(cls, _id):
         data = getCredentialsbyId(_id)
         if data is not None:

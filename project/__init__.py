@@ -20,6 +20,7 @@ from flask_mail import Mail
 import os
 from flask_jwt_extended import JWTManager
 import random
+from flask_caching import Cache
 
 Payload.max_decode_packets = 500
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -31,6 +32,7 @@ socketio = SocketIO(engineio_logger=True, logger = True)
 login_manager = LoginManager()
 jwt = JWTManager()
 mail = Mail()
+cache = Cache()
 
 def create_app(debug = False):
     with app.app_context():
@@ -90,6 +92,7 @@ def create_app(debug = False):
             app.config['MAIL_PASSWORD'] = os.environ.get('mail_password')
             mail.init_app(app)
         jwt.init_app(app)
+        cache.init_app(app, config={'CACHE_TYPE': 'simple'})
         from threading import Thread
         Thread(target=bk_worker).start()
         return app
