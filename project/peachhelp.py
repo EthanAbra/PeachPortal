@@ -6,6 +6,7 @@ from bokeh.models import Span, Label, LabelSet, PolyAnnotation
 from bokeh.plotting import figure
 from bokeh.palettes import Oranges9
 from bokeh.models import Label, PolyAnnotation, Text, Range1d, ColumnDataSource
+import warnings
 
 def posMult(num):
     if num >= 0:
@@ -49,7 +50,7 @@ def double_dip_module(theta3, thetadot3):
         if signed_slopes[sidx] > 0 and signed_slopes[sidx+1] < 0 and signed_slopes[sidx+2] > 0:
             so_far = sum(map(abs, signed_slopes[:sidx+3]))-1
             so_far_high = abs(signed_slopes[sidx+2])+2
-            print(so_far_high)
+            # print(so_far_high)
             dbl_dip_xs += [theta3[index_min_angle + so_far], theta3[index_min_angle + so_far + so_far_high]]
             dbl_dip_ys += [thetadot3[index_min_angle + so_far], thetadot3[index_min_angle + so_far + so_far_high]]
             sidx += 2
@@ -89,7 +90,6 @@ def helperMath(theta3, thetadot3):
         index_max_angle +=1
 
 
-    retDict['double_dip_coords'] = double_dip_module(theta3, thetadot3)
     retDict['work_first_half'], retDict['work_second_half'] = workModule(theta3, thetadot3)
     return retDict
 
@@ -119,8 +119,9 @@ def ideal_stroke_module(theta3, thetadot3):
     y = points[:,1]
 
     # calculate polynomial
-
-    drive_f = Polynomial.fit(x,y,6)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        drive_f = Polynomial.fit(x,y,6)
 
     # calculate new x's and y's
     drive_x_ideal = np.linspace(x[0], x[-1], resampled_drive_angles)
@@ -144,7 +145,10 @@ def ideal_stroke_module(theta3, thetadot3):
 
     # calculate polynomial
 
-    f = Polynomial.fit(x,y,6)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        f = Polynomial.fit(x,y,6)
 
     rec_x_ideal = np.linspace(x[0], x[-1], resampled_drive_angles)
     stroke_dict['recx'] = rec_x_ideal
@@ -165,7 +169,10 @@ def ideal_stroke_module(theta3, thetadot3):
 
     # calculate polynomial
 
-    f = Polynomial.fit(x,y,4)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        f = Polynomial.fit(x,y,4)
 
     b_slip_x_ideal = np.linspace(x[0], x[-1], resampled_drive_angles)
     b_slip_y_ideal = f(b_slip_x_ideal)
@@ -373,7 +380,7 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
 
     signed_slopes +=[posMult(slopes[-1]) * count]
 
-    print(signed_slopes)
+    # print(signed_slopes)
 
     dbl_dip_xs = []
     dbl_dip_ys = []
@@ -616,24 +623,11 @@ def plot_double_dip(bx, coordinates):
         bx[0].add_layout(polylabel)
 
 def generate_figs():
-    ax = [None]*2
-    ax[0] = figure(background_fill_color="#fafafa")
-    ax[1] = figure(background_fill_color="#fafafa")
-    bx = [None]*2
-    bx[0] = figure(background_fill_color="#fafafa")
-    bx[1] = figure(background_fill_color="#fafafa")
+    ax = [figure(background_fill_color="#fafafa"), figure(background_fill_color="#fafafa")]
+    bx = [figure(background_fill_color="#fafafa"), figure(background_fill_color="#fafafa")]
+    cx = [figure(background_fill_color="#fafafa"), figure(background_fill_color="#fafafa")]
 
-
-    cx = [None]*2
-    cx[0] = figure(background_fill_color="#fafafa")
-    cx[1] = figure(background_fill_color="#fafafa")
-
-
-    dx = [None]*3
-    dx[0] = figure(background_fill_color="#fafafa")
-    dx[1] = figure(background_fill_color="#ffffff", x_range = Range1d(0,100), y_range = Range1d(0,100), tools =[])
-    dx[2] = figure(background_fill_color="#fafafa")
-
+    dx = [figure(background_fill_color="#fafafa"), figure(background_fill_color="#ffffff", x_range = Range1d(0,100), y_range = Range1d(0,100), tools =[]), figure(background_fill_color="#fafafa")]
     dx[1].xaxis.major_tick_line_color = None  
     dx[1].xaxis.minor_tick_line_color = None  
     dx[1].yaxis.major_tick_line_color = None  
@@ -647,16 +641,9 @@ def generate_figs():
     dx[1].xaxis.visible = False 
     dx[1].yaxis.visible = False 
 
-    x = [39]
-    y = [90]
-    text = ["Analysis"]
+    title  = Label(x=39, y=90, text='Analysis', text_color = '#00008b', text_font_size = "32px")
 
-
-    source = ColumnDataSource(dict(x=x, y=y, text = text))    
-
-    title  = Text(x='x', y='y', text='text', text_color = '#00008b', text_font_size = "32px")
-
-    dx[1].add_glyph(source, title)
+    dx[1].add_layout(title)
     return ax,bx,cx,dx
 
 
@@ -742,10 +729,10 @@ def athlete_span(athlete_list, colors):
         totalspan += spanner
     return totalspan
         
-def plot_boat_pwrinfo(elite, ax, stroke_nums, average_aper_data, boat_pow):
-    ax[-1].line(x = stroke_nums, y = boat_pow, line_join = 'bevel', line_width = 2, legend_label = "Average Boat Power")
-
+def plot_boat_pwrinfo(elite, ax, stroke_nums, average_aper_data):
+    boat_pow = elite.get_boat_power()
     
+    ax[-1].line(x = stroke_nums, y = boat_pow, line_join = 'bevel', line_width = 2, legend_label = "Average Boat Power")
 
     label = Label(x=elite.numstrokes//2-10, y=np.max(boat_pow), x_units='data', y_units = 'data', 
         text='Average Boat:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
@@ -759,9 +746,9 @@ def plot_boat_pwrinfo(elite, ax, stroke_nums, average_aper_data, boat_pow):
 
 
 def gen_overall_plots(piece_num, athleteMap):
-    ax = [None]* len(athleteMap[int(piece_num)])
+    ax = []
     for i in range(len(athleteMap[int(piece_num)])):
-        ax[i] = figure(background_fill_color="#fafafa")
+        ax.append(figure(background_fill_color="#fafafa"))
 
     ax.append(figure(background_fill_color="#fafafa", sizing_mode="stretch_width"))
     return ax
@@ -823,3 +810,66 @@ def gen_athlete_dict(athleteMap):
             else:
                 athDict[piece_athlete] = [(pieceIdx, paidx)]
     return athDict
+
+
+def mean_and_ideal(seatMean, ax, bx, dx):
+    mathDict = plot_single(seatMean, ax, color = "#FFA500", label= "Actual Stroke")
+    
+    plot_vector(seatMean, label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=bx)
+
+    sloppy_bladework, tail_off = plot_degree_velocity(seatMean, label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=dx)
+    return mathDict,sloppy_bladework,tail_off
+
+def recovery_and_mean(elite, seat_num, bx):
+    boat_mean = mean_module(elite, 100)
+
+    plot_vector(boat_mean, color = "#ba34eb", label = 'Boat Mean Stroke', suppress_power=True, label2='Boat Mean Recovery', ax = bx)
+
+    if seat_num !=7: # if not stroke seat
+        stroke_mean = mean_module(elite, 100, 7)
+        plot_vector(stroke_mean, color = "#30d93e", suppress_power=True, label2='Stroke Mean Recovery', ax = bx)
+
+
+def resample_and_superimposed(elite, seat_num, npts, colors, ax, average_aper_data):
+    theta3 = []
+    thetadot3 = []
+    time_resamp = []
+    for s in range(1, elite.numstrokes):
+        dat3 = elite.resample_stroke(s, [0, seat_num+1,seat_num+1+8], npts)
+        time_resamp += [dat3[:,0]]
+        theta3 += [dat3[:,1]]
+        thetadot3 += [dat3[:,2]]
+    
+    num_strokes = elite.numstrokes
+    plot_superimposed(average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3)
+
+def splits(elite, seat_num, cx):
+    split = elite.get_rating_chunks()
+    for idx, one_split in enumerate(split):
+        plot_splits(elite, seat_num, cx, idx, one_split)
+        
+def dips_and_late(seat_num, bx, average_aper_data, seatMean):
+    theta = seatMean[::3]
+    thetadot = seatMean[1::3]
+    
+    double_dips = double_dip_module(theta, thetadot)
+    
+    plot_double_dip(bx, double_dips)
+    late_placement = False
+
+    if seat_num < 7:
+        look_ahead_avg = np.mean(average_aper_data[41+seat_num+1:49])/200 # all seats ahead of seat_num catch time
+        if look_ahead_avg-average_aper_data[41+seat_num] <= .01 or average_aper_data[41+7]- average_aper_data[41+seat_num] <= .01:
+            late_placement = True
+    return double_dips,late_placement
+
+def plot_individual(npts, piece_num, elite, colors, athleteMap, ax, stroke_nums, average_aper_data, peep):
+    theta3 = []
+    thetadot3 = []
+    for s in range(1, elite.numstrokes):
+        dat3 = elite.resample_stroke(s, [0, peep+1,peep+1+8], npts)
+        theta3 += [dat3[:,1]]
+        thetadot3 += [dat3[:,2]]
+        
+    plot_superimposed(average_aper_data, elite.numstrokes, peep, colors, ax, theta3, thetadot3, peep)        
+    ax[-1].line(x = stroke_nums, y = elite.aper_data[:,1+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label=athleteMap[int(piece_num)][peep])

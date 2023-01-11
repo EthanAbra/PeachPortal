@@ -57,7 +57,6 @@ class User(UserMixin):
 
     @classmethod
     def register(cls, _id, email, pwHash, salt):
-        print("hit register")
         user = cls.get_by_email(email)
         if user is None:
             new_user = cls(_id, email, pwHash, salt)
@@ -84,7 +83,6 @@ class User(UserMixin):
 def user_loader(user_id):
     user = User.get_by_id(int(user_id))
     if user is not None:
-        print("user is not none")
         return User(user._id, user.email, user.pwHash, user.salt)
     else:
         return None

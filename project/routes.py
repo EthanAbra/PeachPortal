@@ -12,6 +12,8 @@ from .database import getAllUnsplits
 import numpy as np
 from . import socketio
 import collections
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 unpickledWorkouts = collections.defaultdict()
 
@@ -252,39 +254,20 @@ def overallView(internalId= None):
 
     colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
 
-
-    athDict = {}
-    athleteMap = meta['athlete_list']
-    for pieceIdx in range(len(athleteMap)):
-        for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
-            in_dict = athDict.get(piece_athlete,None)
-            if in_dict is not None:
-                pl, side = in_dict
-                pl.append(pieceIdx)
-                athDict[piece_athlete] = (pl,side)
-            else:
-                side = 'port' if paidx%2 != 0 else 'starboard'
-                athDict[piece_athlete] = ([pieceIdx], side)
-
     
+    athleteMap = meta['athlete_list']
+
     ax = peachhelp.gen_overall_plots(piece_num, athleteMap)
-
+    
     stroke_nums = list(range(1, elite.numstrokes+1))
-
+    num_seats = len(athleteMap[int(piece_num)])
     average_aper_data = elite.get_average_aper_data()
-    for peep in range(len(athleteMap[int(piece_num)])):
-        theta3 = []
-        thetadot3 = []
-        for s in range(1, elite.numstrokes):
-            dat3 = elite.resample_stroke(s, [0, peep+1,peep+1+8], npts)
-            theta3 += [dat3[:,1]]
-            thetadot3 += [dat3[:,2]]
-        
-        peachhelp.plot_superimposed(average_aper_data, elite.numstrokes, peep, colors, ax, theta3, thetadot3, peep)        
-        ax[-1].line(x = stroke_nums, y = elite.aper_data[:,1+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label=athleteMap[int(piece_num)][peep])
+    with ThreadPoolExecutor() as executor:
+        seat_futures = [executor.submit(peachhelp.plot_individual, npts, piece_num, elite, colors, athleteMap, ax, stroke_nums, average_aper_data, peep) for peep in range(num_seats)]
+        boat_future = executor.submit(peachhelp.plot_boat_pwrinfo, elite, ax, stroke_nums, average_aper_data)
 
-    boat_pow = elite.get_boat_power()
-    peachhelp.plot_boat_pwrinfo(elite, ax, stroke_nums, average_aper_data, boat_pow)
+    [f.result() for f in seat_futures]
+    _ = boat_future.result()
 
     my_grid = layout([
         gridplot(children = ax[0:len(athleteMap[int(piece_num)])], ncols=4),
@@ -298,6 +281,8 @@ def overallView(internalId= None):
     script, div = components(my_grid)
     
     return response + '<div id = "overall">' + div+script + '<div>'
+
+
 
 
 
@@ -378,64 +363,38 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
     colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
 
     ax, bx, cx, dx = peachhelp.generate_figs()
-
-    theta3 = []
-    thetadot3 = []
-    time_resamp = []
-    for s in range(1, elite.numstrokes):
-        dat3 = elite.resample_stroke(s, [0, seat_num+1,seat_num+1+8], npts)
-        time_resamp += [dat3[:,0]]
-        theta3 += [dat3[:,1]]
-        thetadot3 += [dat3[:,2]]
-    
     average_aper_data = elite.get_average_aper_data()
-    num_strokes = elite.numstrokes
-    peachhelp.plot_superimposed(average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3)
+    
+    seatMean = peachhelp.mean_module(elite, 100, seat_num)
+    
+    
+    with ThreadPoolExecutor() as executor:
+    
+        resamp_future = executor.submit(peachhelp.resample_and_superimposed, elite, seat_num, npts, colors, ax, average_aper_data)
+        
+        mean_ideal_future = executor.submit(peachhelp.mean_and_ideal, seatMean, ax, bx, dx)
+        
+        rec_mean_future = executor.submit(peachhelp.recovery_and_mean, elite, seat_num, bx)
+
+        splits_future = executor.submit(peachhelp.splits, elite, seat_num, cx)
+
+        dips_late_future = executor.submit(peachhelp.dips_and_late, seat_num, bx, average_aper_data, seatMean)
+
+
+    _ = resamp_future.result()
+    mathDict,sloppy_bladework,tail_off = mean_ideal_future.result()
+    _ = rec_mean_future.result()
+    _ = splits_future.result()
+    double_dips, late_placement = dips_late_future.result()
+
+    early_build = True
+    
+    sudden_accel = False
 
     max_force_pct = average_aper_data[121+seat_num]
 
-    seatMean = peachhelp.mean_module(elite, 100, seat_num)
-    
-    peachhelp.plot_vector(seatMean, label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=bx)
-
-    sloppy_bladework, tail_off = peachhelp.plot_degree_velocity(seatMean, label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=dx)
-
-    boat_mean = peachhelp.mean_module(elite, 100)
-
-    peachhelp.plot_vector(boat_mean, color = "#ba34eb", label = 'Boat Mean Stroke', suppress_power=True, label2='Boat Mean Recovery', ax = bx)
-
-    if seat_num !=7: # if not stroke seat
-        stroke_mean = peachhelp.mean_module(elite, 100, 7)
-        peachhelp.plot_vector(stroke_mean, color = "#30d93e", suppress_power=True, label2='Stroke Mean Recovery', ax = bx)
-
-
-    mathDict = peachhelp.plot_single(seatMean, ax, color = "#FFA500", label= "Actual Stroke")
-
-    double_dips = mathDict['double_dip_coords']
-    peachhelp.plot_double_dip(bx, double_dips)
-
-    split = elite.get_rating_chunks()
-
-    for idx, one_split in enumerate(split):
-        peachhelp.plot_splits(elite, seat_num, cx, idx, one_split)
-        
-    sudden_accel = False
-    late_placement = False
-
-    if seat_num < 7:
-        look_ahead_avg = np.mean(average_aper_data[41+seat_num+1:49])/200 # all seats ahead of seat_num catch time
-        if look_ahead_avg-average_aper_data[41+seat_num] <= .01 or average_aper_data[41+7]- average_aper_data[41+seat_num] <= .01:
-            late_placement = True
-
-        
-    work_first = ['work_first_half']
-    work_second = mathDict['work_second_half']
-
-    early_build = True
-
     analysis_pts = peachhelp.tech_tree(early_build, max_force_pct, sloppy_bladework, tail_off,
-              double_dips, sudden_accel, late_placement, work_first, work_second)
-
+              double_dips, sudden_accel, late_placement, mathDict['work_first_half'], mathDict['work_second_half'])
 
     peachhelp.render_analysis(dx, analysis_pts)
 
