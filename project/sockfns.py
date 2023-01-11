@@ -36,7 +36,7 @@ def mimewrap(serverfilename):
             return True
     return False
 
-def st_valid_athletes(addedId, teamId, athleteMap):
+def st_valid_athletes(addedId, teamId, athleteMap, bokehdb = None):
     athDict = {}
     for pieceIdx in range(len(athleteMap)):
         for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
@@ -112,5 +112,8 @@ def st_valid_athletes(addedId, teamId, athleteMap):
                 print(f'attributed to {athlete}', end='\r')
         return True
     else:
-        deleteWorkout(addedId)
+        if bokehdb is not None:
+            deleteWorkout(addedId, bokehdb)
+        else:
+            deleteWorkout(addedId)
         return False
