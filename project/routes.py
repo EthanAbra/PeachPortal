@@ -82,8 +82,9 @@ def workouts():
     render_unsplit = []
     for workout in unsplitworkouts:
         if not os.path.exists(workout['serverfilename']):
-            deleteUnsplit(workout['_id'])
-            unsplitworkouts.remove(workout)
+            if os.environ.get('ENV') == 'PRODUCTION':   
+                deleteUnsplit(workout['_id'])
+                unsplitworkouts.remove(workout)
         else:
             render_unsplit.append(workout)
     html = render_template('workouts.html' ,workouts=renderlist, unsplitworkouts = render_unsplit, delPerm=delPerm, athId=athlete['_id'], athlete_name = athlete['first'] + " " + athlete['last'])
@@ -274,7 +275,7 @@ def overallView(internalId= None):
 
     multi_piece = len(meta['piece_list']) > 1
 
-    response = peachhelp.gen_overall_response(internalId, piece_num, meta, multi_piece)
+    response = peachhelp.gen_overall_response(elite.numseats, internalId, piece_num, meta, multi_piece)
 
     script, div = components(my_grid)
     
@@ -376,7 +377,7 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
 
         splits_future = executor.submit(peachhelp.splits, elite, seat_num, cx)
 
-        dips_late_future = executor.submit(peachhelp.dips_and_late, seat_num, bx, average_aper_data, seatMean)
+        dips_late_future = executor.submit(peachhelp.dips_and_late, elite.numseats, seat_num, bx, average_aper_data, seatMean)
 
 
     _ = resamp_future.result()
@@ -419,7 +420,7 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
     else:
         piece_loop = [(meta['piece_list'][pieceIdx], pieceIdx, seat_spot) for (pieceIdx, seat_spot) in piecers]
 
-    response = peachhelp.gen_indv_response(seat_num, meta, internal, piece_num, multi_piece, piece_loop, ad)
+    response = peachhelp.gen_indv_response(elite.numseats, seat_num, meta, internal, piece_num, multi_piece, piece_loop, ad)
 
     # render template
     script, div = components(my_grid)

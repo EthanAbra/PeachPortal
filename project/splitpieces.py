@@ -4,7 +4,7 @@ from bokeh.layouts import layout, row, column, Spacer, gridplot, grid
 from bokeh.models import CustomJS, RangeSlider, BoxAnnotation, Button, TextInput, AutocompleteInput, Div
 from bokeh.models.sources import ColumnDataSource
 from .database import queryUnsplitData, addWorkout, getAllAthletes, queryUnsplitMeta, getAllWorkouts, queryWorkoutMeta
-from .database import addWorkoutToAthlete, deleteWorkout, addCredentials, getCredentialsbyId, addAthlete, deleteUnsplit
+from .database import deleteUnsplit
 import os
 from dotenv import load_dotenv
 import pymongo
@@ -14,9 +14,9 @@ from .xlsxMethods import read_excel
 import random
 import pickle
 from bson.binary import Binary
-from fuzzywuzzy import fuzz
-from fuzzywuzzy import process
 from .sockfns import st_valid_athletes
+from concurrent.futures import ThreadPoolExecutor
+
 
 
 
@@ -44,24 +44,14 @@ def processPieces(unsplitId, unsplitDicts, teamId):
     athlete_map = []
     piece_list = []
     
-    for unsplitdict in unsplitDicts:
-        unsplitdata = {}
-        unsplitdata['athlete_map'] = unsplitdict['athlete_map']
-        unsplitdata['date'] = bigPeach.date
-        unsplitdata['notes'] = bigPeach.misc_info
-        unsplitdata['start_times'] = big_start_times[unsplitdict['start_stroke']-1:unsplitdict['end_stroke']]
-        # print(unsplitdata['start_times'])
-        unsplitdata['aper_headers'] = bigPeach.aper_headers
-        unsplitdata['aper_data'] = big_aper_data[unsplitdict['start_stroke']-1:unsplitdict['end_stroke']]
-        unsplitdata['headers'] = bigPeach.headers
-        data_start = bigPeach.open_ind(unsplitdata['start_times'][0])
-        data_stop = bigPeach.open_ind(big_start_times[unsplitdict['end_stroke']])
-        unsplitdata['data'] = big_data[data_start:data_stop]
-        unsplitdata['t0'] = int(unsplitdata['data'][0][0])
-        unsplitdata['dt'] = bigPeach.dt
-        pieces.append(PeachData.from_unsplit(unsplitdata))
-        athlete_map.append(unsplitdata['athlete_map'])
-        piece_list.append(unsplitdict['title'])
+    teamId = int(teamId)
+    
+    with ThreadPoolExecutor() as executor:
+        piece_futures = [executor.submit(make_pieces, bigPeach, big_start_times, big_data, 
+                                         big_aper_data, pieces, athlete_map, piece_list, unsplitdict) 
+                         for unsplitdict in unsplitDicts]
+    
+    [f.result() for f in piece_futures]
     
     peach_bytes = pickle.dumps(pieces)
     
@@ -81,7 +71,7 @@ def processPieces(unsplitId, unsplitDicts, teamId):
         
     workoutDict = {
         '_id' : nextId,
-        'title' : str(meta['serverfilename']),
+        'title' : f"workout on {bigPeach.date.strftime('%d/%m/%Y')}",
         'date' : bigPeach.date,
         'peach_data' : Binary(peach_bytes),
         'notes' : list(bigPeach.misc_info),
@@ -99,6 +89,25 @@ def processPieces(unsplitId, unsplitDicts, teamId):
             os.remove(meta['serverfilename'])
             deleteUnsplit(unsplitId, bokehdb)
             return addedId
+
+def make_pieces(bigPeach, big_start_times, big_data, big_aper_data, pieces, athlete_map, piece_list, unsplitdict):
+    unsplitdata = {}
+    unsplitdata['athlete_map'] = unsplitdict['athlete_map']
+    unsplitdata['date'] = bigPeach.date
+    unsplitdata['notes'] = bigPeach.misc_info
+    unsplitdata['start_times'] = big_start_times[unsplitdict['start_stroke']-1:unsplitdict['end_stroke']]
+        # print(unsplitdata['start_times'])
+    unsplitdata['aper_headers'] = bigPeach.aper_headers
+    unsplitdata['aper_data'] = big_aper_data[unsplitdict['start_stroke']-1:unsplitdict['end_stroke']]
+    unsplitdata['headers'] = bigPeach.headers
+    data_start = bigPeach.open_ind(unsplitdata['start_times'][0])
+    data_stop = bigPeach.open_ind(big_start_times[unsplitdict['end_stroke']])
+    unsplitdata['data'] = big_data[data_start:data_stop]
+    unsplitdata['t0'] = int(unsplitdata['data'][0][0])
+    unsplitdata['dt'] = bigPeach.dt
+    pieces.append(PeachData.from_unsplit(unsplitdata))
+    athlete_map.append(unsplitdata['athlete_map'])
+    piece_list.append(unsplitdict['title'])
     
 
 
@@ -129,7 +138,15 @@ def my_gui(doc):
     elite = practice['peach_data']
     athlete_map = elite.athlete_map
     if len(athlete_map)==0:
-        athlete_map = ['seat ' + str(i) for i in range(1,9)]
+        count = 1
+        head = elite.aper_headers[1]
+        for header in elite.aper_headers[1:]:
+            if head == header:
+                count += 1
+            else:
+                break
+        
+        athlete_map = ['seat ' + str(i) for i in range(1,count)] 
         
     load_div = loading_div()
     stroke_nums = np.arange(elite.numstrokes)
@@ -207,7 +224,6 @@ def my_gui(doc):
         doc.add_next_tick_callback(confirm_follow)
         
     def confirm_follow():
-        print(vars(confirm_button))
         rootLayout = doc.get_model_by_name('rootLayout')
         listOfSubLayouts = rootLayout.children[-2].children.copy()
         listOfSubLayouts = [x[0] for x in listOfSubLayouts]
@@ -303,7 +319,7 @@ def my_gui(doc):
     p2.line(x = stroke_nums, y = boat_pow, line_join = 'bevel', line_width = 2)
     colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
     
-    for peep in range(8):
+    for peep in range(len(athlete_map)):
         p1.line(np.arange(elite.numstrokes), elite.aper_data[:,1+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2)
 
     # Layout

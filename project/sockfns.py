@@ -4,7 +4,7 @@ from polyfile.magic import MagicMatcher
 import random
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
-
+from concurrent.futures import ThreadPoolExecutor
 from .database import addWorkoutToAthlete, deleteWorkout, getCredentialsbyId, addCredentials, addAthlete, getAllAthletes, addUnsplit
 
 
@@ -50,45 +50,71 @@ def st_valid_athletes(addedId, teamId, athleteMap, bokehdb = None):
                 athDict[piece_athlete] = ([pieceIdx], side)
                 
     if len(athDict) :
-        for athlete, athleteTuple in athDict.items():
-            print(athlete)
-            athlete_piece_list, side = athleteTuple
-            if len(athlete.split())==1:
-                first, last = athlete[0], athlete[0]
-            else:
-                first, last = athlete.split() 
-            # print()
+        with ThreadPoolExecutor() as executor:
+            athlete_futures = [executor.submit(process_athlete,addedId, teamId, bokehdb, athlete, athleteTuple) for athlete, athleteTuple in athDict.items()]
+        [future.result() for future in athlete_futures]
+        return True
+    else:
+        if bokehdb is not None:
+            deleteWorkout(addedId, bokehdb)
+        else:
+            deleteWorkout(addedId)
+        return False
 
+def process_athlete(addedId, teamId, bokehdb, athlete, athleteTuple):
+        athlete_piece_list, side = athleteTuple
+        if len(athlete.split())==1:
+            first, last = athlete[0], athlete[0]
+        else:
+            first, last = athlete.split() 
+            # print()
+        if bokehdb is not None:
+            allAthletes = getAllAthletes(teamId, 'name', False, bokehdb)
+        else:
             allAthletes = getAllAthletes(teamId)
 
-            athlete_query = None
-            for existingAthlete in allAthletes:
-                if fuzz.token_sort_ratio(existingAthlete['namestring'], athlete) >= 85:
-                    athlete_query = existingAthlete
-                    break
+        if allAthletes is None:
+            allAthletes = []
 
-            if athlete_query:
-                athleteId = athlete_query['_id']
-                print(f'attributed to {athlete}', end='\r')
+        athlete_query = None
+        for existingAthlete in allAthletes:
+            if fuzz.token_sort_ratio(existingAthlete['namestring'], athlete) >= 85:
+                athlete_query = existingAthlete
+                break
+
+        if athlete_query:
+            athleteId = athlete_query['_id']
+            print(f'attributed to {athlete}', end='\r')
+            if bokehdb is not None:
+                edited = addWorkoutToAthlete(athleteId, addedId, athlete_piece_list, bokehdb)
+            else:
                 edited = addWorkoutToAthlete(athleteId, addedId, athlete_piece_list)
-            else: # we need to create a new athlete account for this individual
-
-                error = ''
-                newId = random.randint(10, 100000)
+        else: # we need to create a new athlete account for this individual
+            error = ''
+            newId = random.randint(10, 100000)
+            if bokehdb is not None:
+                already_id = getCredentialsbyId(newId, bokehdb)
+            else:
                 already_id = getCredentialsbyId(newId)
-                while already_id:
-                    newId = random.randint(10, 100000)
+            while already_id:
+                newId = random.randint(10, 100000)
+                if bokehdb is not None:
+                    already_id = getCredentialsbyId(newId, bokehdb)
+                else:
                     already_id = getCredentialsbyId(newId)
      
                 # add temporary login credentials to credentials DB
+            if bokehdb is not None:
+                add = addCredentials(newId, athlete, "pwhash", "salt", bokehdb)
+            else:
                 add = addCredentials(newId, athlete, "pwhash", "salt")
-                if not add:
-                    error += 'failed to add user cred'
+            if not add:
+                error += 'failed to add user cred'
 
                 # create athlete document from entered info
-                permissions = []
+            permissions = []
 
-                athleteJson = {
+            athleteJson = {
                     "_id" : newId,
                     "first" : first,
                     "last" : last,
@@ -98,22 +124,17 @@ def st_valid_athletes(addedId, teamId, athleteMap, bokehdb = None):
                     "piecelist": {str(addedId): athlete_piece_list},
                     "side" : side,
                     "active" : True,
-                    "teamId" : teamId
+                    "teamId" : int(teamId)
                 }
-                print(athleteJson)
                 # add athlete document to athlete db
+            if bokehdb is not None:
+                add = addAthlete(athleteJson, bokehdb)
+            else:
                 add = addAthlete(athleteJson)
-                if not add:
-                    error += "failed to add athlete"
+            if not add:
+                error += "failed to add athlete"
                 
-                if len(error):
-                    False
+            if len(error):
+                False
 
-                print(f'attributed to {athlete}', end='\r')
-        return True
-    else:
-        if bokehdb is not None:
-            deleteWorkout(addedId, bokehdb)
-        else:
-            deleteWorkout(addedId)
-        return False
+            print(f'attributed to {athlete}', end='\r')
