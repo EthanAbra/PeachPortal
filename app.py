@@ -25,8 +25,7 @@ def write_chunk(filename, offset, data):
 def write_complete(data):
     print("wrcomp")
     user = current_user
-    thread = Thread(target = write_comp_process, args = (user._id, data, 'peach processed'))
-    thread.start()
+    Thread(target = write_comp_process, args = (current_user._id, data, 'peach processed')).start()
 
 
 
@@ -37,9 +36,7 @@ def valid_athletes(addedId, teamId, athleteMap):
 @socketio.on('write-complete-unsplit')
 def write_complete_unsplit(data):
     print("wrcompunsplit")
-    user = current_user
-    thread = Thread(target = write_comp_process, args = (user._id, data, 'unsplit processed'))
-    thread.start()
+    Thread(target = write_comp_process, args = (current_user._id, data, 'unsplit processed')).start()
    
 def write_comp_process(userId, data, emitName):
     with app.app_context():
