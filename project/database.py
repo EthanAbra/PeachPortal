@@ -7,8 +7,6 @@ from flask import current_app, g
 from werkzeug.local import LocalProxy
 import pymongo
 ca = certifi.where()
-from . import peach
-from .peach import PeachData
 # print(os.environ)
 # print(CONNECTION_STRING)
 
@@ -225,7 +223,6 @@ def getAllUnsplits(teamId, sort_by='date', db = flaskdb):
 def queryTeam(teamId, db = flaskdb):
     print(f'queryTeam called with {teamId}')
     try:
-        teamId = int(teamId)
         res = db.teams.find_one({'_id' : teamId})
         return res
     except Exception as e:
@@ -241,7 +238,7 @@ def addTeam(name, db = flaskdb):
             teamId = random.randint(10, 999999) 
 
         res = db.teams.insert_one({'_id' : teamId, 'name' : name})
-        return res.inserted_id
+        return int(res.inserted_id)
     except Exception as e:
         print(str(e))
         return None

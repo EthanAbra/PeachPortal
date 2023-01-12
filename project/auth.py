@@ -146,7 +146,7 @@ def signup():
                         "side" : side,
                         "class" : classYr,
                         "active" : True,
-                        "teamId" : team
+                        "teamId" : int(team)
                     }
                     
                     # add athlete document to athlete db
