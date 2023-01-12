@@ -21,7 +21,13 @@ class PeachData():
         try:
             # read times for start of each stroke from "Aperiodic" section of file
             athletes_start = np.flatnonzero((df[1]=='Name') & (df[2]=='Abbr'))[0]
-            self.athlete_map = df.iloc[athletes_start+1: athletes_start+9, 1].dropna().to_numpy(copy=True)
+            df1 = df.head(20)
+            if (df1[0]=='Cox').any():
+                athletes_stop = np.flatnonzero(df[0]=='Cox')[0]
+            else:
+                athletes_stop = np.flatnonzero(df[0]=='Coach')[0]
+            self.athlete_map = df.iloc[athletes_start+1: athletes_stop+1, 1].dropna().to_numpy(copy=True)
+            
 
             self.date = parser.parse(df.iloc[2, 3])
 
@@ -69,6 +75,10 @@ class PeachData():
     def numstrokes(self):
         return len(self.start_times) - 1
 
+    @property
+    def numseats(self):
+        return len(self.athlete_map)
+
     def __ind(self, time):
         return (time - self.t0) // self.dt
     
@@ -113,8 +123,8 @@ class PeachData():
         if i < 0 or i >= self.numstrokes:
             raise ValueError("Number of strokes %d out of bounds (%d)"
                              % (i, self.numstrokes))
-        resampeds  = [np.zeros((npts, 3))]*8
-        for seat in range(8):
+        resampeds  = [np.zeros((npts, 3))]*self.numseats
+        for seat in range(self.numseats):
             if cols[0]==0:
                 new_cols = [col+seat for col in cols[1:]]
                 new_cols.insert(0,0)
@@ -124,7 +134,7 @@ class PeachData():
         return np.mean(resampeds, axis=0)
 
     def get_boat_power(self):
-        return self.aper_data[:,133][:-1]
+        return self.aper_data[:,1+16*self.numseats+4][:-1]
 
     def get_date(self):
         return self.date
@@ -134,6 +144,9 @@ class PeachData():
 
     def get_athletes(self):
         return self.athlete_map
+    
+    def set_athletes(self, athlete_list):
+        self.athlete_map = athlete_list
     
     def get_start_times(self):
         return self.start_times
@@ -146,7 +159,7 @@ class PeachData():
             return np.mean(self.aper_data, axis=0)
 
     def get_rating_chunks(self):
-        event = self.aper_data[:,129][:-1]
+        event = self.aper_data[:,1+16*self.numseats][:-1]
         event = list(zip(event, list(range(len(event)))))
         event.sort(key = lambda y: y[0])
         delta_t = 2

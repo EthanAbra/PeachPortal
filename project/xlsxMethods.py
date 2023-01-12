@@ -1,7 +1,7 @@
 from io import StringIO
 from openpyxl import load_workbook
 from xlsx2csv import Xlsx2csv
-from .database import getAllWorkouts, getAllUnsplits, queryWorkoutMeta, queryUnsplitMeta
+from .database import queryWorkoutMeta, queryUnsplitMeta
 import datetime
 from bson.binary import Binary
 import pickle
@@ -64,10 +64,6 @@ def xlsxRead(filename):
         print(e)
         return False, "Powerline File is formatted incorrectly"
 
-    # TODO: double upload dont want conflict
-
-    peach_bytes = pickle.dumps(data)
-
 
     nextId = random.randint(1, 2**24)
     already_id = queryWorkoutMeta(nextId)
@@ -81,9 +77,13 @@ def xlsxRead(filename):
     for datum in data[1:]:
         if len(list(datum.get_athletes()))<len(athlete_map[-1]):
             athlete_map.append(athlete_map[-1])
+            datum.set_athletes(athlete_map[-1])
         else:
             athlete_map.append(list(datum.get_athletes()))
             
+    peach_bytes = pickle.dumps(data)
+            
+    
     workoutDict = {
         '_id' : nextId,
         'title' : f"workout on {data[0].date.strftime('%d/%m/%Y')}",
@@ -114,10 +114,10 @@ def xlsxReadUnsplit(filename):
 
 
     nextId = random.randint(1, 2**24)
-    already_id = queryWorkoutMeta(nextId)
+    already_id = queryUnsplitMeta(nextId)
     while already_id:
         nextId = random.randint(1, 2**24)
-        already_id = queryWorkoutMeta(nextId)
+        already_id = queryUnsplitMeta(nextId)
      
 
     workoutDict = {

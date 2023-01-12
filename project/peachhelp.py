@@ -188,33 +188,6 @@ def ideal_stroke_module(theta3, thetadot3):
     return stroke_dict
 
 
-def mean_module(elite, npts, chosen_seat=None, chosen_range = None):
-    if chosen_range:
-        start, end = chosen_range
-        numstrokes = end-start +1
-    else:
-        numstrokes = elite.numstrokes
-    if chosen_seat is not None:
-        numseats = 1
-        cols = [chosen_seat+1, chosen_seat+9, chosen_seat+17]
-        snapshots = np.zeros((len(cols)*npts, numstrokes))
-        for s in range(numstrokes):
-            dat = elite.resample_stroke(s, cols, npts)
-            snapshots[:,s] = dat.flatten()
-    else:
-        numseats = 8
-        cols = np.array([1, 9, 17])
-        snapshots = np.zeros((len(cols)*npts, numseats*numstrokes))
-        for s in range(numstrokes):
-            for seat in range(numseats):
-                cols += seat
-                ind = s*numseats + seat
-                dat = elite.resample_stroke(s, cols, npts)
-                snapshots[:,ind] = dat.flatten()
-                cols = np.array([1, 9, 17])
-    return snapshots.sum(1) / (numseats * numstrokes)
-    
-
 
 
 def plot_vector(vec, ax, label=None, label2 = None, color = "#084594", transparency = None, suppress_power = False, legend_title = ""):
@@ -344,7 +317,7 @@ def plot_single(vec, ax, label=None, color = "#084594"):
 
 
 
-def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", transparency = None, suppress_power = False, legend_title = ""):
+def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", legend_title = ""):
     # split a vector into (theta, thetadot) and plot
     npts = len(vec) // 3
     t = np.linspace(0, 1, npts+1)[:-1]
@@ -554,49 +527,6 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
     return sloppy_bladework, tail_off
 
 
-def gen_indv_response(seat_num, meta, internal, piece_num, multi_piece, piece_loop,ad):
-    response = ""
-    if not internal:
-        if multi_piece:
-            response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
-            for piece, num, s_num in piece_loop:
-                response +=  '<li class="nav-item">'  
-                response += '<button class="btn btn-outline-info'
-                if num == piece_num:
-                    response += ' active" role = "button" aria-pressed = "true'
-                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s=' 
-                response += str(s_num) + '&piece=' + str(num)
-                if ad:
-                    response+= '&ad=1'
-                response += '" hx-target = "#raw">' + str(piece) + '</button>' 
-                response += '</li>'
-            response += '</ul> </div>'
-        response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
-        response +=  '<li class="nav-item">'  
-        response += '<button class="btn btn-outline-primary'
-        if multi_piece: 
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(piece_num) + '" hx-target = "#raw">' + "Overall View" + '</button>' 
-        else:
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '" hx-target = "#raw">' + "Overall View" + '</button>' 
-        response += '</li>'
-        for num in range(8):
-            response +=  '<li class="nav-item">'  
-            response += '<button class="btn btn-outline-primary'
-            if num == seat_num:
-                response += ' active" role = "button" aria-pressed = "true'
-            if not multi_piece:
-                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num)
-                if ad:
-                    response+= '&ad=1'
-                response += '" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
-            else:
-                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + str(piece_num)
-                if ad:
-                    response+= '&ad=1'
-                response += '" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
-            response += '</li>'
-        response += '</ul> </div>'
-    return response
 
 def plot_double_dip(bx, coordinates):
     polygons = []
@@ -647,62 +577,9 @@ def generate_figs():
     return ax,bx,cx,dx
 
 
-def gen_overall_response(internalId, piece_num, meta, multi_piece):
-    response = ""
-    if not internalId:
-        if multi_piece:
-            response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
-            for num, piece in enumerate(meta['piece_list']):
-                response +=  '<li class="nav-item">'  
-                response += '<button class="btn btn-outline-info'
-                if str(num) == piece_num:
-                    response += ' active" role = "button" aria-pressed = "true'
-                response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(num) + '" hx-target = "#raw">' + piece + '</button>' 
-                response += '</li>'
-            response += '</ul> </div>'
-
-        
-        response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto"> <li class="nav-item"> <button class="btn btn-outline-primary active" role = "button" aria-pressed = "true'
-        if multi_piece: 
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + piece_num + 'ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
-        else:
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + 'ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
-        response += '</li>'
-        for num in range(8):
-            response +=  '<li class="nav-item">'  
-            response += '<button class="btn btn-outline-primary"'
-            if not multi_piece:
-                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + 'ad=1" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
-            else:
-                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + piece_num + '&ad=1" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
-            response += '</li>'
-        response += '</ul> </div>'
-    return response
 
 
 
-def plot_splits(elite, seat_num, cx, idx, one_split):
-    split_mean = mean_module(elite, 100, seat_num, (one_split[0], one_split[1]))
-    plot_vector(split_mean, ax=cx, color=Oranges9[idx], legend_title = "Stroke over Time",
-        label="Stroke %d-%d, avg s/m: %.1f, avg W: %.1fW" 
-        %(one_split[0]+1, one_split[1]+1, 
-        elite.get_average_aper_data(one_split)[129], 
-        elite.get_average_aper_data(one_split)[1+seat_num]), 
-        label2 = "Stroke %d-%d, avg Max Force: %.2f%%" 
-        %(one_split[0]+1, one_split[1]+1, 
-        elite.get_average_aper_data(one_split)[121+seat_num]))
-    
-    
-def plot_superimposed(average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, peep = 0):
-    ax[peep].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*num_strokes + 0.2722, .02), color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
-    ax[peep].xaxis.axis_label='Gate Angle °'
-    ax[peep].yaxis.axis_label='Gate Force (N)'
-    label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
-    text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
-    (average_aper_data[1+seat_num],average_aper_data[17+seat_num], average_aper_data[33+seat_num], average_aper_data[121+seat_num]),
-        border_line_color='black', border_line_alpha=.5,
-        background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
-    ax[peep].add_layout(label)
 
 def render_analysis(dx, analysis_pts):
     x = [5]*len(analysis_pts)
@@ -716,34 +593,6 @@ def render_analysis(dx, analysis_pts):
 
     dx[1].add_glyph(source, title)
     
-def athlete_span(athlete_list, colors):
-    totalspan = ""
-    for pieceIdx, piece in enumerate(athlete_list):
-        spanner = '<span>Piece ' + str(pieceIdx+1) + ": </span>"
-        for idx, athlet in enumerate(piece):
-            spapender = ", </span>" if idx<7 else "</span>"
-            spanner += '<span style=color:' +  colors[idx] + '>Seat ' +str(idx+1) + \
-                ": "+ athlet + spapender
-        if pieceIdx > 0:
-            totalspan += "<br>"
-        totalspan += spanner
-    return totalspan
-        
-def plot_boat_pwrinfo(elite, ax, stroke_nums, average_aper_data):
-    boat_pow = elite.get_boat_power()
-    
-    ax[-1].line(x = stroke_nums, y = boat_pow, line_join = 'bevel', line_width = 2, legend_label = "Average Boat Power")
-
-    label = Label(x=elite.numstrokes//2-10, y=np.max(boat_pow), x_units='data', y_units = 'data', 
-        text='Average Boat:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
-        (np.mean(average_aper_data[1:9]),np.mean(average_aper_data[17:25]), np.mean(average_aper_data[33:41]), np.mean(average_aper_data[121:129])),
-            border_line_color='black', border_line_alpha=.5,
-            background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
-            
-    
-    ax[-1].add_layout(label)
-    ax[-1].legend.click_policy="hide"
-
 
 def gen_overall_plots(piece_num, athleteMap):
     ax = []
@@ -817,38 +666,124 @@ def mean_and_ideal(seatMean, ax, bx, dx):
     
     plot_vector(seatMean, label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=bx)
 
-    sloppy_bladework, tail_off = plot_degree_velocity(seatMean, label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=dx)
+    sloppy_bladework, tail_off = plot_degree_velocity(seatMean, ax=dx, label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery')
     return mathDict,sloppy_bladework,tail_off
 
-def recovery_and_mean(elite, seat_num, bx):
-    boat_mean = mean_module(elite, 100)
 
-    plot_vector(boat_mean, color = "#ba34eb", label = 'Boat Mean Stroke', suppress_power=True, label2='Boat Mean Recovery', ax = bx)
-
-    if seat_num !=7: # if not stroke seat
-        stroke_mean = mean_module(elite, 100, 7)
-        plot_vector(stroke_mean, color = "#30d93e", suppress_power=True, label2='Stroke Mean Recovery', ax = bx)
-
-
-def resample_and_superimposed(elite, seat_num, npts, colors, ax, average_aper_data):
-    theta3 = []
-    thetadot3 = []
-    time_resamp = []
-    for s in range(1, elite.numstrokes):
-        dat3 = elite.resample_stroke(s, [0, seat_num+1,seat_num+1+8], npts)
-        time_resamp += [dat3[:,0]]
-        theta3 += [dat3[:,1]]
-        thetadot3 += [dat3[:,2]]
     
-    num_strokes = elite.numstrokes
-    plot_superimposed(average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3)
+    
 
 def splits(elite, seat_num, cx):
     split = elite.get_rating_chunks()
     for idx, one_split in enumerate(split):
         plot_splits(elite, seat_num, cx, idx, one_split)
         
-def dips_and_late(seat_num, bx, average_aper_data, seatMean):
+def plot_individual(npts, piece_num, elite, colors, athleteMap, ax, stroke_nums, average_aper_data, peep):
+    theta3 = []
+    thetadot3 = []
+    for s in range(1, elite.numstrokes):
+        dat3 = elite.resample_stroke(s, [0, peep+1,peep+1+elite.numseats], npts)
+        theta3 += [dat3[:,1]]
+        thetadot3 += [dat3[:,2]]
+        
+    plot_superimposed(elite.numseats, average_aper_data, elite.numstrokes, peep, colors, ax, theta3, thetadot3, peep)        
+    ax[-1].line(x = stroke_nums, y = elite.aper_data[:,1+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label=athleteMap[int(piece_num)][peep])
+            
+def recovery_and_mean(elite, seat_num, bx):
+    boat_mean = mean_module(elite, 100)
+
+    plot_vector(boat_mean, color = "#ba34eb", label = 'Boat Mean Stroke', suppress_power=True, label2='Boat Mean Recovery', ax = bx)
+
+    if seat_num !=elite.numseats-1: # if not stroke seat
+        stroke_mean = mean_module(elite, 100, 7)
+        plot_vector(stroke_mean, color = "#30d93e", suppress_power=True, label2='Stroke Mean Recovery', ax = bx)
+        
+
+def resample_and_superimposed(elite, seat_num, npts, colors, ax, average_aper_data):
+    theta3 = []
+    thetadot3 = []
+    time_resamp = []
+    for s in range(1, elite.numstrokes):
+        dat3 = elite.resample_stroke(s, [0, seat_num+1,seat_num+1+elite.numseats], npts)
+        time_resamp += [dat3[:,0]]
+        theta3 += [dat3[:,1]]
+        thetadot3 += [dat3[:,2]]
+    num_strokes = elite.numstrokes
+    plot_superimposed(elite.numseats, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3)
+        
+        
+def athlete_span(athlete_list, colors):
+    totalspan = ""
+    for pieceIdx, piece in enumerate(athlete_list):
+        spanner = '<span>Piece ' + str(pieceIdx+1) + ": </span>"
+        for idx, athlet in enumerate(piece):
+            spapender = ", </span>" if idx<len(athlete_list)-1 else "</span>"
+            spanner += '<span style=color:' +  colors[idx] + '>Seat ' +str(idx+1) + \
+                ": "+ athlet + spapender
+        if pieceIdx > 0:
+            totalspan += "<br>"
+        totalspan += spanner
+    return totalspan
+
+
+        
+def plot_boat_pwrinfo(elite, ax, stroke_nums, average_aper_data):
+    boat_pow = elite.get_boat_power()
+    
+    ax[-1].line(x = stroke_nums, y = boat_pow, line_join = 'bevel', line_width = 2, legend_label = "Average Boat Power")
+
+    label = Label(x=elite.numstrokes//2-10, y=np.max(boat_pow), x_units='data', y_units = 'data', 
+        text='Average Boat:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
+        (np.mean(average_aper_data[1:1+elite.numseats]),np.mean(average_aper_data[1+2*elite.numseats:1+3*elite.numseats]), np.mean(average_aper_data[1+4*elite.numseats:1+5*elite.numseats]), np.mean(average_aper_data[1+15*elite.numseats:1+16*elite.numseats])),
+            border_line_color='black', border_line_alpha=.5,
+            background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
+            
+    
+    ax[-1].add_layout(label)
+    ax[-1].legend.click_policy="hide"
+    
+    
+def plot_splits(elite, seat_num, cx, idx, one_split):
+    split_mean = mean_module(elite, 100, seat_num, (one_split[0], one_split[1]))
+    plot_vector(split_mean, ax=cx, color=Oranges9[idx], legend_title = "Stroke over Time",
+        label="Stroke %d-%d, avg s/m: %.1f, avg W: %.1fW" 
+        %(one_split[0]+1, one_split[1]+1, 
+        elite.get_average_aper_data(one_split)[1+16*elite.numseats], 
+        elite.get_average_aper_data(one_split)[1+seat_num]), 
+        label2 = "Stroke %d-%d, avg Max Force: %.2f%%" 
+        %(one_split[0]+1, one_split[1]+1, 
+        elite.get_average_aper_data(one_split)[1+15*elite.numseats+seat_num]))
+    
+    
+    
+def mean_module(elite, npts, chosen_seat=None, chosen_range = None):
+    if chosen_range:
+        start, end = chosen_range
+        numstrokes = end-start +1
+    else:
+        numstrokes = elite.numstrokes
+    if chosen_seat is not None:
+        divisor = 1
+        cols = [chosen_seat+1, chosen_seat+1+elite.numseats, chosen_seat+1+2*elite.numseats]
+        snapshots = np.zeros((len(cols)*npts, numstrokes))
+        for s in range(numstrokes):
+            dat = elite.resample_stroke(s, cols, npts)
+            snapshots[:,s] = dat.flatten()
+    else:
+        divisor = elite.numseats
+        cols = np.array([1, 1+elite.numseats, 1+2*elite.numseats])
+        snapshots = np.zeros((len(cols)*npts, elite.numseats*numstrokes))
+        for s in range(numstrokes):
+            for seat in range(elite.numseats):
+                cols += seat
+                ind = s*elite.numseats + seat
+                dat = elite.resample_stroke(s, cols, npts)
+                snapshots[:,ind] = dat.flatten()
+                cols = np.array([1, 1+elite.numseats, 1+2*elite.numseats])
+    return snapshots.sum(1) / (divisor * numstrokes)
+    
+    
+def dips_and_late(numseats, seat_num, bx, average_aper_data, seatMean):
     theta = seatMean[::3]
     thetadot = seatMean[1::3]
     
@@ -857,19 +792,100 @@ def dips_and_late(seat_num, bx, average_aper_data, seatMean):
     plot_double_dip(bx, double_dips)
     late_placement = False
 
-    if seat_num < 7:
-        look_ahead_avg = np.mean(average_aper_data[41+seat_num+1:49])/200 # all seats ahead of seat_num catch time
-        if look_ahead_avg-average_aper_data[41+seat_num] <= .01 or average_aper_data[41+7]- average_aper_data[41+seat_num] <= .01:
+    if seat_num < numseats-1:
+        look_ahead_avg = np.mean(average_aper_data[1+5*numseats+seat_num+1:numseats*6+1])/200 # all seats ahead of seat_num catch time
+        if look_ahead_avg-average_aper_data[1+5*numseats+seat_num] <= .01 or average_aper_data[1+5*numseats+7]- average_aper_data[1+5*numseats+seat_num] <= .01:
             late_placement = True
-    return double_dips,late_placement
+    return double_dips,late_placement    
 
-def plot_individual(npts, piece_num, elite, colors, athleteMap, ax, stroke_nums, average_aper_data, peep):
-    theta3 = []
-    thetadot3 = []
-    for s in range(1, elite.numstrokes):
-        dat3 = elite.resample_stroke(s, [0, peep+1,peep+1+8], npts)
-        theta3 += [dat3[:,1]]
-        thetadot3 += [dat3[:,2]]
+
+def gen_indv_response(numseats, seat_num, meta, internal, piece_num, multi_piece, piece_loop, ad):
+    response = ""
+    if not internal:
+        if multi_piece:
+            response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
+            for piece, num, s_num in piece_loop:
+                response +=  '<li class="nav-item">'  
+                response += '<button class="btn btn-outline-info'
+                if num == piece_num:
+                    response += ' active" role = "button" aria-pressed = "true'
+                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s=' 
+                response += str(s_num) + '&piece=' + str(num)
+                if ad:
+                    response+= '&ad=1'
+                response += '" hx-target = "#raw">' + str(piece) + '</button>' 
+                response += '</li>'
+            response += '</ul> </div>'
+        response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
+        response +=  '<li class="nav-item">'  
+        response += '<button class="btn btn-outline-primary'
+        if multi_piece: 
+            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(piece_num) + '" hx-target = "#raw">' + "Overall View" + '</button>' 
+        else:
+            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '" hx-target = "#raw">' + "Overall View" + '</button>' 
+        response += '</li>'
+        for num in range(numseats):
+            response +=  '<li class="nav-item">'  
+            response += '<button class="btn btn-outline-primary'
+            if num == seat_num:
+                response += ' active" role = "button" aria-pressed = "true'
+            if not multi_piece:
+                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num)
+                if ad:
+                    response+= '&ad=1'
+                response += '" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
+            else:
+                response +=  '" hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + str(piece_num)
+                if ad:
+                    response+= '&ad=1'
+                response += '" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
+            response += '</li>'
+        response += '</ul> </div>'
+    return response
+
+def gen_overall_response(numseats, internalId, piece_num, meta, multi_piece):
+    response = ""
+    if not internalId:
+        if multi_piece:
+            response = '<div id = "piecelist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto">'
+            for num, piece in enumerate(meta['piece_list']):
+                response +=  '<li class="nav-item">'  
+                response += '<button class="btn btn-outline-info'
+                if str(num) == piece_num:
+                    response += ' active" role = "button" aria-pressed = "true'
+                response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(num) + '" hx-target = "#raw">' + piece + '</button>' 
+                response += '</li>'
+            response += '</ul> </div>'
+
         
-    plot_superimposed(average_aper_data, elite.numstrokes, peep, colors, ax, theta3, thetadot3, peep)        
-    ax[-1].line(x = stroke_nums, y = elite.aper_data[:,1+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label=athleteMap[int(piece_num)][peep])
+        response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto"> <li class="nav-item"> <button class="btn btn-outline-primary active" role = "button" aria-pressed = "true'
+        if multi_piece: 
+            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + piece_num + 'ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
+        else:
+            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + 'ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
+        response += '</li>'
+        for num in range(numseats):
+            response +=  '<li class="nav-item">'  
+            response += '<button class="btn btn-outline-primary"'
+            if not multi_piece:
+                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + 'ad=1" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
+            else:
+                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + piece_num + '&ad=1" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
+            response += '</li>'
+        response += '</ul> </div>'
+    return response
+
+    
+def plot_superimposed(numseats, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, peep = 0):
+    ax[peep].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*num_strokes + 0.2722, .02), color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
+    ax[peep].xaxis.axis_label='Gate Angle °'
+    ax[peep].yaxis.axis_label='Gate Force (N)'
+    label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
+    text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
+    (average_aper_data[1+seat_num],average_aper_data[1+2*numseats+seat_num], average_aper_data[1+4*numseats+seat_num], average_aper_data[1+15*numseats+seat_num]),
+        border_line_color='black', border_line_alpha=.5,
+        background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
+    ax[peep].add_layout(label)
+    
+
+
