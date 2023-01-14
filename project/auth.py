@@ -159,7 +159,7 @@ def register():
     if form.validate_on_submit():
         name = form.teamName.data.capitalize()
 
-        teamId = addTeam(name)
+        teamId = addTeam(name, False)
 
         print(f'New team added: {name}. id:{teamId}')
         signupForm = SignupForm()
