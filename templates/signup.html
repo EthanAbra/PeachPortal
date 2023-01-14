@@ -47,71 +47,63 @@
                         </ul>
                     {% endif %}
                     {% endwith %}
+                    {% for field, errors in form.errors.items() %}
+                    {%for error in errors%}
+                    <div class = 'alert alert-danger' role = 'alert'>{{error}}</div>
+                    {% endfor %}
+                    {% endfor %}
+                    {% block content%}
                     <form action="" method="POST">
+                        {{ form.hidden_tag() }}
                         <div class="form-group">
-                            <label for="firstForm">First name * </label>
-                            <input type="text" id= "firstForm" class="form-control" name="first" value="{{request.form.first}}" required>
+                            <label for="firstForm">{{form.first.label}}</label>
+                            {{form.first(class="form-control")}}
                         </div>
                         <div class="form-group">
-                            <label for="lastForm">Last name * </label>
-                            <input type="text" id= "lastForm" class="form-control" name="last" value="{{request.form.last}}" required>
+                            <label for="lastForm">{{form.last.label}}</label>
+                            {{form.last(class="form-control")}}
                         </div>
                         <div class="form-group">
-                            <label for="emailForm">Email address * </label>
-                            <input type="email" id= "emailForm" class="form-control" name="username" value="{{request.form.username}}" required>
+                            <label for="emailForm">{{form.email.label}}</label>
+                            {{form.email(class="form-control")}}
                         </div>
                         <div class="form-group">
-                            <label for="passwordForm">Password * </label>
-                            <input type="password" class="form-control" name="password" id="passwordForm" value="{{request.form.password}}" required>
+                            <label for="passwordForm">{{form.password.label}}</label>
+                            {{form.password(class="form-control")}}
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmForm">{{form.confirm.label}}</label>
+                            {{form.confirm(class="form-control")}}
                         </div>
                         <div class="row">
                             <div class="col-sm-4">
                                 <div class="form-group">
-                                    <label for="classForm">Class * </label>
-                                    <input type="number" id= "classForm" class="form-control" name="class" value="{{request.form.class}}" required>
+                                    <label for="classForm"> {{form.classId.label}}</label>
+                                    {{form.classId(class="form-control")}}
                                 </div>
                             </div>
                             <div class="col-sm-4">
                                 <div class="form-check">
-                                    <label for="sideform">Side * </label>
+                                    <label for="sideform">{{form.side.label}}</label>
                                     <div class="btn-group btn-group-toggle btn-block" data-toggle="buttons" id="sideform">
-            
-                                        <label class="btn btn-outline-success " for="starboardcheck" >Starboard
-                                        <input type="radio" name="side" autocomplete="off" value="starboard" id="starboardcheck" required />
+                                        {% for subfield in form.side%}
+                                        <label class="btn btn-outline-success " for="starboardcheck" >{{subfield.label}}
+                                            {{subfield(class="form-check-input")}}
                                         </label>
-    
-                                        <label class="btn btn-outline-danger" for="portcheck">Port
-                                        <input type="radio" name="side" autocomplete="off" value="port" id="portcheck" />
-                                        </label>
-                                        
-                                        <label class="btn btn-outline-secondary" for="coxcheck">Coxswain/Coach
-                                        <input type="radio" name="side" autocomplete="off" value="cox" id="coxcheck" />
-                                        </label>
-                                    
+                                        {% endfor %}
                                     </div>
                                 </div>
                             </div>
-                            {% if newTeam %}
                             <div class="col-sm-12">
                                 <div class="form-group">
-                                    <label for="teamForm">Team * </label>
-                                    <input type="number" id= "teamForm" class="form-control" name="team" value="{{teamId}}" disabled>
+                                    <label for="teamForm">{{form.teamId.label}}</label>
+                                    {{form.teamId(class="form-control")}}
                                 </div>
-                            </div>
-                            <input type="hidden" name='admin' value='1'>
-                            {% else %}
-                            <div class="col-sm-12">
-                                <div class="form-group">
-                                    <label for="teamForm">Team * </label>
-                                    <input type="number" id= "teamForm" class="form-control" name="team" value="{{request.form.team}}" required>
-                                </div>
-                            </div>
-                            {% endif %}
-
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary">Sign up</button>
+                        {{form.submit(class="btn btn-primary")}}
                       </form>
+                    {% endblock %}
                 </div>
             </div>
 

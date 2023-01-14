@@ -14,6 +14,7 @@ from fuzzywuzzy import process
 from flask_mail import Message
 from threading import Thread
 import os
+from .forms import LoginForm, SignupForm, RegisterForm
 
 
 ca = certifi.where()
@@ -35,24 +36,15 @@ def send_email(app, msg):
 """ renders the login page and processes user logins"""
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-
-    # on form submission (POST request)
-    if request.method == 'POST':
-        # get email and password from form
-        email = request.form['username']
-        password = bytes(request.form['password'],'utf-8')
-        # get the credentials 
-        find_user = getCredentials(email)
-
-        if User.login_valid(email, password):
-            loguser = User(find_user["_id"], find_user["email"], find_user["pwHash"], find_user["salt"])
-            login_user(loguser, force=True, duration=timedelta(hours=2))
-            print(f'{email} logged in, new session')
-            # print(res)
-            return redirect('/home')
-        else:
-            flash('Login Unsuccessful. Please check email and password', 'danger')
-    return render_template('login.html')
+    form = LoginForm()
+    if form.validate_on_submit() and getCredentials(form.email.data) is not None:
+        print('validated')
+        find_user = getCredentials(form.email.data)
+        loguser = User(find_user["_id"], find_user["email"], find_user["pwHash"], find_user["salt"])
+        login_user(loguser, force=True, duration=timedelta(hours=2))
+        print(f'{form.email.data} logged in, new session')
+        return redirect('/home')
+    return render_template('login.html', form = form)
 
 
 
@@ -70,19 +62,19 @@ def logout():
 """ sign up a new user """
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
-
+    form = SignupForm()
     # on form submission
-    if request.method =='POST':
+    if form.validate_on_submit():
         # get form inputs 
-        first = request.form['first'].capitalize()
-        last = request.form['last'].capitalize()
-        email = request.form['username']
-        password = bytes(request.form['password'], 'utf-8')
-        classYr = request.form['class']
-        side = request.form['side']
+        first = form.first.data.capitalize()
+        last = form.last.data.capitalize()
+        email = form.email.data
+        password = form.password.data.encode('utf-8')
+        classYr = form.classId.data
+        side = form.side.data
         team = request.args.get('t')
         if not team:
-            team = request.form['team']
+            team = form.teamId.data
 
         salt = bcrypt.gensalt()
         pwhash = bcrypt.hashpw(password, salt)
@@ -106,7 +98,6 @@ def signup():
                 if already_cred["pwHash"] == "pwhash":
                     # temped cred, update the cred
                     count = 0
-
                     count += editCredentialsBatch(already_here["_id"], "email", email, "pwHash", pwhash, "salt", salt)
                     if count != 3:
                         print('failed to update user credentials')
@@ -132,16 +123,13 @@ def signup():
                     flash('failed to add user')
                 else:
                     # create athlete document from entered info
-                    permissions = []
-                    if side == 'cox':
-                        permissions.append('cox')
 
                     athlete = {
                         "_id" : newId,
                         "first" : first,
                         "last" : last,
                         "namestring": first+ " " + last,
-                        "permissions" : permissions,
+                        "permissions" : [],
                         "workouts" : [],
                         "side" : side,
                         "class" : classYr,
@@ -159,26 +147,26 @@ def signup():
                         return make_response(html)
     teamId = request.args.get('t')
     if teamId:
-        html = render_template('signup.html', newTeam=True, teamId=teamId)
-    else:
-        html = render_template('signup.html', newTeam=False)
+        form.teamId.data = int(teamId)
+    html = render_template('signup.html', form = form)
     return make_response(html)
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    error = ''
-    if request.method == 'POST':
-        name = request.form['teamName'].capitalize()
+    form = RegisterForm()
+    if form.validate_on_submit():
+        name = form.teamName.data.capitalize()
 
         teamId = addTeam(name)
 
         print(f'New team added: {name}. id:{teamId}')
-
-        html = render_template('signup.html', newTeam=True, teamId=teamId)
+        signupForm = SignupForm()
+        signupForm.teamId.data = teamId
+        html = render_template('signup.html', form = signupForm, newTeam=True, teamId=teamId)
         return redirect(f'/signup?t={teamId}')
 
-    html = render_template('register.html', error=error)
+    html = render_template('register.html', form=form)
     return make_response(html)
 
 

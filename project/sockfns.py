@@ -122,6 +122,7 @@ def process_athlete(addedId, teamId, bokehdb, athlete, athleteTuple):
                     "permissions" : permissions,
                     "workouts" : [addedId],
                     "piecelist": {str(addedId): athlete_piece_list},
+                    "class": 1000,
                     "side" : side,
                     "active" : True,
                     "teamId" : int(teamId)

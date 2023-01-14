@@ -38,14 +38,21 @@
             <div class="card" style="width: 100%;">
                 <div class="card-body">
                     <h1 style="text-align: right;">Register team</h1>
-                    {{error}}
-                    <form action="" method="POST">
+                    {% for field, errors in form.errors.items() %}
+                    {%for error in errors%}
+                    <div class = 'alert alert-danger' role = 'alert'>{{error}}</div>
+                    {% endfor %}
+                    {% endfor %}
+                    {% block content%}
+                    <form id='registerForm' action="/register" method="POST">
+                    {{form.hidden_tag()}}
                         <div class="form-group">
-                            <label for="teamForm">Team name * </label>
-                            <input type="text" id= "teamForm" class="form-control" name="teamName" value="{{request.form.team}}" required>
+                            <label for="teamForm">{{form.teamName.label}}</label>
+                            {{form.teamName(class="form-control")}}
                         </div>
-                        <button type="submit" class="btn btn-primary">Register team</button>
-                      </form>
+                        {{form.submit(class="btn btn-primary")}}
+                    </form>
+                    {% endblock %}
                 </div>
             </div>
 

@@ -38,26 +38,25 @@
             <div class="card" style="width: 100%;">
                 <div class="card-body">
                     <h1 style="text-align: right;">Log in</h1>
-                    {% with messages = get_flashed_messages() %}
-                    {% if messages %}
-                        <ul class=flashes>
-                        {% for message in messages %}
-                        <div class="alert alert-danger" role="alert"> {{message}} </div>
-                        {% endfor %}
-                        </ul>
-                    {% endif %}
-                    {% endwith %}
+                    {% for field, errors in form.errors.items() %}
+                    {%for error in errors%}
+                    <div class = 'alert alert-danger' role = 'alert'>{{error}}</div>
+                    {% endfor %}
+                    {% endfor %}
+                    {% block content%}
                     <form action="" method="POST">
+                        {{ form.hidden_tag() }}
                         <div class="form-group">
-                          <label for="emailForm">Email address</label>
-                          <input type="email" id= "emailForm" class="form-control" name="username" value="{{request.form.username}}">
+                          <label for="emailForm">{{form.email.label}}</label>
+                          {{form.email(class="form-control", id="emailForm")}}
                         </div>
                         <div class="form-group">
-                          <label for="passwordForm">Password</label>
-                          <input type="password" class="form-control" name="password" id="passwordForm" value="{{request.form.password}}">
+                          <label for="passwordForm">{{form.password.label}}</label>
+                          {{form.password(class="form-control", id="passwordForm")}}
                         </div>
-                        <button type="submit" class="btn btn-primary">Log in</button>
-                      </form>
+                        {{form.submit(class="btn btn-primary")}}
+                    </form>
+                    {% endblock %}
                         <!-- Simple link -->
                         <br>
                         <a href="/forgotpassword">Forgot password?</a>
