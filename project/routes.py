@@ -14,6 +14,8 @@ from . import socketio
 import collections
 import time
 from concurrent.futures import ThreadPoolExecutor
+from .forms import TeamForm, AthleteForm
+from collections import namedtuple
 
 unpickledWorkouts = collections.defaultdict()
 
@@ -473,46 +475,35 @@ def team():
 
 
 
+
     teamId = athlete['teamId']
     teamName = queryTeam(teamId)['name']
     teammates = getAllAthletes(teamId)
     athDict = {}
+    athList = []
     for teammate in list(teammates):
-        athDict[teammate['_id']] = teammate
-    sumModified = 0
+        if 'class' not in teammate:
+            classId = 0
+        else:
+            classId = int(teammate['class'])
+        athlet = {'athleteId' : str(teammate['_id']), 'namestring': teammate['namestring'], 
+                  'classId' : classId, 'side' : teammate['side'], 'active':teammate['active'], 
+                  'permissions' : teammate['permissions']}
+        athDict[teammate['_id']] = athlet
+        athList.append(athlet)
+    form = TeamForm(data = {'athletes':athList})
     
-    if request.method == 'POST':
-        postDict = {}
-        for key in list(request.form):
-            newVal = request.form[key]
-            field, athleteId = key.split('_')
-            if field == 'active':
-                if newVal == "none":
-                    newVal = False
-                else:
-                    newVal = True
-            elif newVal == "none":
-                continue
-            oldDict = postDict.get(athleteId, {'permissions':[]})
-            if field == "cox" or field == "admin":
-                oldPerms = oldDict.get('permissions')
-                oldPerms.append(field)
-                oldDict['permissions'] = oldPerms               
-            else:
-                oldDict[field] = request.form[key]
-            postDict[athleteId] = oldDict
-        for thisId, post_athDict in postDict.items():
-            for field, val in post_athDict.items():
-                if athDict[int(thisId)][field] != val:
-                    sumModified += editAthlete(int(thisId), field, val)
-        if sumModified >0 :
-            return redirect('/team')
-                
-                        
+    if form.validate_on_submit():
+        for athlete in form.athletes.data:
+            athlete.pop('csrf_token')
+            if athDict[int(athlete['athleteId'])] != athlete:
+                thisId = athlete.pop('athleteId')
+                for field, val in athlete.items():
+                    if athDict[int(thisId)][field] != val:
+                        editAthlete(int(thisId), field, val)
+        return redirect('/team')
 
-
-        print(f'Team "{teamName}" edited by {athlete["first"]} {athlete["last"]}')
-    html= render_template('team.html', athletes=teammates.rewind(), teamName=teamName)
+    html= render_template('team.html', form = form, teamId=teamId, teamName=teamName)
     return make_response(html)
 
 
