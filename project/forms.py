@@ -40,6 +40,7 @@ class AthleteForm(FlaskForm):
     side = SelectField('Side', choices=[('port', 'Port'), ('starboard', 'Starboard'), ('cox', 'Coxswain')], validators=[DataRequired()])
     classId = IntegerField('ClassId')  
     permissions = SelectMultipleField('Permissions', choices=[('admin', 'Admin'), ('cox', 'Cox')])
+    renders = SelectMultipleField('Renders', choices=[('slip', 'Slip'), ('wash', 'Wash'), ('power', 'Power'), ('percentage', 'Max Force %')])
     active = BooleanField('Active')
     
 

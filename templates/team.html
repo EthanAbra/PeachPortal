@@ -67,6 +67,7 @@
                                 <th scope="col">Side</th>
                                 <th scope="col">Class</th>
                                 <th scope="col">Active</th>
+                                <th scope="col">Display Attributes</th>
                                 <th scope="col"><span style = "color: gray;">(Admin: edit team, Cox: see all workouts/curves, Default: only see own pieces in own workouts)</span> <br>Permissions</th>
                               </tr>
                             </thead>
@@ -78,6 +79,7 @@
                                     <th style="width: 15%;">{{athlete.side(class = 'selectpicker')}}</th>
                                     <th style="width: 10%;">{{athlete.classId(class = 'classinput')}}</th>
                                     <th style="width: 5%;">{{athlete.active(class = 'activeinput')}}</th>
+                                    <th style="width: 15%;">{{athlete.renders(class = 'selectpicker')}}</th>
                                     <th style="width: 35%;">{{athlete.permissions(class = 'selectpicker')}}</th>
                                     </tr>
                                     {% endfor %}

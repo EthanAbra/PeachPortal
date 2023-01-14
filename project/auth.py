@@ -99,7 +99,7 @@ def signup():
                     # temped cred, update the cred
                     count = 0
                     count += editCredentialsBatch(already_here["_id"], "email", email, "pwHash", pwhash, "salt", salt)
-                    if count != 3:
+                    if count == 0:
                         print('failed to update user credentials')
                         flash('failed. please try again')
                     else:
@@ -129,6 +129,7 @@ def signup():
                         "first" : first,
                         "last" : last,
                         "namestring": first+ " " + last,
+                        "renders": ['slip', 'wash', 'power', 'percentage'],
                         "permissions" : [],
                         "workouts" : [],
                         "side" : side,
