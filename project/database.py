@@ -56,10 +56,10 @@ def queryAthlete(athleteId, db = flaskdb):
         print(str(e))
         return None
 
-def queryAthleteByName(first, last, team, db = flaskdb):
-    print(f'queryAthleteByName called with {first} {last} {team}')
+def queryAthleteByName(namestring, team, db = flaskdb):
+    print(f'queryAthleteByName called with {namestring} {team}')
     try:
-        return db.athletes.find_one({'first' : first, 'last' : last, 'teamId': team})
+        return db.athletes.find_one({'namestring' : namestring, 'teamId': team})
     except Exception as e:
         print(str(e))
         return None
@@ -220,6 +220,7 @@ def getAllUnsplits(teamId, sort_by='date', db = flaskdb):
 
 # ------------------------------------------------------------------ # 
 # general team db methods
+
 def queryTeam(teamId, db = flaskdb):
     print(f'queryTeam called with {teamId}')
     try:
@@ -233,7 +234,6 @@ def addTeam(name, db = flaskdb):
     print(f'addTeam called with {name}')
     try:
         teamId = random.randint(10, 999999)
-        # ensure no id collision
         while queryTeam(teamId):
             teamId = random.randint(10, 999999) 
 

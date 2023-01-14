@@ -120,6 +120,7 @@ def process_athlete(addedId, teamId, bokehdb, athlete, athleteTuple):
                     "last" : last,
                     "namestring": athlete,
                     "permissions" : permissions,
+                    "renders":['slip', 'wash', 'power', 'percentage'],
                     "workouts" : [addedId],
                     "piecelist": {str(addedId): athlete_piece_list},
                     "class": 1000,

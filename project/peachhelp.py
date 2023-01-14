@@ -552,29 +552,31 @@ def plot_double_dip(bx, coordinates):
         bx[0].add_layout(polygon)
         bx[0].add_layout(polylabel)
 
-def generate_figs():
+def generate_figs(analysis = True):
     ax = [figure(background_fill_color="#fafafa"), figure(background_fill_color="#fafafa")]
     bx = [figure(background_fill_color="#fafafa"), figure(background_fill_color="#fafafa")]
     cx = [figure(background_fill_color="#fafafa"), figure(background_fill_color="#fafafa")]
+    dx = None
+    if analysis:
+        dx = [figure(background_fill_color="#fafafa"), figure(background_fill_color="#ffffff", x_range = Range1d(0,100), y_range = Range1d(0,100), tools =[]), figure(background_fill_color="#fafafa")]
+        dx[1].xaxis.major_tick_line_color = None  
+        dx[1].xaxis.minor_tick_line_color = None  
+        dx[1].yaxis.major_tick_line_color = None  
+        dx[1].yaxis.minor_tick_line_color = None  
+        dx[1].xaxis.major_label_text_font_size = '0pt'  
+        dx[1].yaxis.major_label_text_font_size = '0pt'  
+        dx[1].outline_line_width = 7
+        dx[1].outline_line_alpha = 0.3
+        dx[1].outline_line_color = "navy"
+        dx[1].grid.visible = False
+        dx[1].xaxis.visible = False 
+        dx[1].yaxis.visible = False 
 
-    dx = [figure(background_fill_color="#fafafa"), figure(background_fill_color="#ffffff", x_range = Range1d(0,100), y_range = Range1d(0,100), tools =[]), figure(background_fill_color="#fafafa")]
-    dx[1].xaxis.major_tick_line_color = None  
-    dx[1].xaxis.minor_tick_line_color = None  
-    dx[1].yaxis.major_tick_line_color = None  
-    dx[1].yaxis.minor_tick_line_color = None  
-    dx[1].xaxis.major_label_text_font_size = '0pt'  
-    dx[1].yaxis.major_label_text_font_size = '0pt'  
-    dx[1].outline_line_width = 7
-    dx[1].outline_line_alpha = 0.3
-    dx[1].outline_line_color = "navy"
-    dx[1].grid.visible = False
-    dx[1].xaxis.visible = False 
-    dx[1].yaxis.visible = False 
+        title  = Label(x=39, y=90, text='Analysis', text_color = '#00008b', text_font_size = "32px")
 
-    title  = Label(x=39, y=90, text='Analysis', text_color = '#00008b', text_font_size = "32px")
-
-    dx[1].add_layout(title)
+        dx[1].add_layout(title)
     return ax,bx,cx,dx
+    
 
 
 
@@ -661,11 +663,12 @@ def gen_athlete_dict(athleteMap):
     return athDict
 
 
-def mean_and_ideal(seatMean, ax, bx, dx):
+def mean_and_ideal(seatMean, analysis, ax, bx, dx):
     mathDict = plot_single(seatMean, ax, color = "#FFA500", label= "Actual Stroke")
     
     plot_vector(seatMean, label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery', ax=bx)
-
+    if not analysis:
+        return
     sloppy_bladework, tail_off = plot_degree_velocity(seatMean, ax=dx, label= 'Overall Mean Stroke', label2 = 'Overall Mean Recovery')
     return mathDict,sloppy_bladework,tail_off
 
@@ -699,7 +702,7 @@ def recovery_and_mean(elite, seat_num, bx):
         plot_vector(stroke_mean, color = "#30d93e", suppress_power=True, label2='Stroke Mean Recovery', ax = bx)
         
 
-def resample_and_superimposed(elite, seat_num, npts, colors, ax, average_aper_data):
+def resample_and_superimposed(elite, render, seat_num, npts, colors, ax, average_aper_data):
     theta3 = []
     thetadot3 = []
     time_resamp = []
@@ -709,7 +712,7 @@ def resample_and_superimposed(elite, seat_num, npts, colors, ax, average_aper_da
         theta3 += [dat3[:,1]]
         thetadot3 += [dat3[:,2]]
     num_strokes = elite.numstrokes
-    plot_superimposed(elite.numseats, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3)
+    plot_superimposed(elite.numseats, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, render=render)
         
         
 def athlete_span(athlete_list, colors):
@@ -876,15 +879,29 @@ def gen_overall_response(numseats, internalId, piece_num, meta, multi_piece):
     return response
 
     
-def plot_superimposed(numseats, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, peep = 0):
+def plot_superimposed(numseats, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, peep = 0, render = None):
     ax[peep].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*num_strokes + 0.2722, .02), color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
     ax[peep].xaxis.axis_label='Gate Angle °'
     ax[peep].yaxis.axis_label='Gate Force (N)'
+    if render is None:
+        text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %(average_aper_data[1+seat_num],
+                                                                                      average_aper_data[1+2*numseats+seat_num], 
+                                                                                      average_aper_data[1+4*numseats+seat_num], 
+                                                                                      average_aper_data[1+15*numseats+seat_num])
+    else:
+        text = ''
+        if 'power' in render:
+            text += 'Average\nPower: %.2f N\n' % average_aper_data[1+seat_num]
+        if 'slip' in render:
+            text += 'Slip: %.2f°\n' % average_aper_data[1+2*numseats+seat_num]
+        if 'wash' in render:
+            text += 'Wash: %.2f°\n' % average_aper_data[1+4*numseats+seat_num]
+        if 'percentage' in render:
+            text += 'Max Force: %.2f%%' % average_aper_data[1+15*numseats+seat_num]
     label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
-    text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
-    (average_aper_data[1+seat_num],average_aper_data[1+2*numseats+seat_num], average_aper_data[1+4*numseats+seat_num], average_aper_data[1+15*numseats+seat_num]),
-        border_line_color='black', border_line_alpha=.5,
-        background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
+        text=text,
+            border_line_color='black', border_line_alpha=.5,
+            background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
     ax[peep].add_layout(label)
     
 

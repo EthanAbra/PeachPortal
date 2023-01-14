@@ -6,16 +6,14 @@ from flask_login import current_user, login_required
 from . import peachhelp
 from flask import Blueprint, request, make_response, redirect, current_app
 from flask import render_template, current_app
-from .database import getAllAthletes, getAllWorkouts, queryAthlete, queryWorkoutData, queryTeam, queryUnsplitMeta
-from .database import queryWorkoutMeta, deleteWorkout, removeWorkoutFromAthlete, editAthlete, editWorkout, deleteUnsplit
+from .database import getAllAthletes, getAllWorkouts, queryWorkoutData, queryUnsplitMeta, queryAthlete
+from .database import deleteWorkout, removeWorkoutFromAthlete, editAthlete, editWorkout, deleteUnsplit
 from .database import getAllUnsplits
-import numpy as np
 from . import socketio
 import collections
-import time
 from concurrent.futures import ThreadPoolExecutor
-from .forms import TeamForm, AthleteForm
-from collections import namedtuple
+from .forms import TeamForm
+from .middleman import getTeamInfo, getWorkoutMeta, getAthleteByName, getAthleteById
 
 unpickledWorkouts = collections.defaultdict()
 
@@ -50,7 +48,7 @@ def home():
     if current_user.is_anonymous():
         print("anon!")
         return redirect('/login')
-    athlete = queryAthlete(user._id)
+    athlete = getAthleteById(user._id)
     html = render_template('home.html', perms=athlete['permissions'], first=athlete['first'], async_mode=socketio.async_mode)
     return make_response(html)
 
@@ -68,7 +66,7 @@ def workouts():
     if user.is_anonymous():
         return redirect('/login')
 
-    athlete = queryAthlete(user._id)
+    athlete = getAthleteById(user._id)
     unsplitworkouts = []
     workouts = list(getAllWorkouts(athlete['teamId']))
     if 'cox' in athlete['permissions'] or 'admin' in athlete['permissions']:
@@ -103,7 +101,7 @@ def delete():
         return redirect('/login')
 
     # print(user)
-    athlete = queryAthlete(user._id)
+    athlete = getAthleteById(user._id)
     
 
     workoutId = request.args.get('wid')
@@ -128,7 +126,7 @@ def delete():
             deleted = deleteUnsplit(workoutId)
             return redirect('/workouts')
         else:
-            if athlete['teamId'] != queryWorkoutMeta(workoutId)['teamId']:
+            if athlete['teamId'] != getWorkoutMeta(workoutId)['teamId']:
                 print(f"Cross-team delete attempted by user {athlete['first']} {athlete['last']} on team:{athlete['teamId']}")
                 return render_template('error.html'), 500
             deleted = deleteWorkout(workoutId)
@@ -149,7 +147,7 @@ def delete():
         workout = queryUnsplitMeta(workoutId)
         unsplit = True
     else:
-        workout = queryWorkoutMeta(workoutId)
+        workout = getWorkoutMeta(workoutId)
     html = render_template('confirmDelete.html', workout=workout, wid=workoutId, aid=athleteId, unsplit = str(unsplit))
     return make_response(html)
 
@@ -165,7 +163,7 @@ def workout():
     if user.is_anonymous():
         return redirect('/login')
     # print(user)
-    athlete = queryAthlete(user._id)
+    athlete = getAthleteById(user._id)
 
     if 'admin' in athlete['permissions'] or 'cox' in athlete['permissions']:
         isAdmin = True
@@ -177,7 +175,7 @@ def workout():
     _, meta = unpickledWorkouts.get(workoutId, (None, None))
     
     if not meta:
-        meta = queryWorkoutMeta(workoutId)
+        meta = getWorkoutMeta(workoutId)
 
     if not meta:
         print('no meta found')
@@ -217,7 +215,7 @@ def workout():
         js_resources=js_resources,
         css_resources=css_resources,
         isAdmin = isAdmin,
-        num_seats = range(8),
+        num_seats = range(len(meta['athlete_list'][0])),
         athId = athlete['_id'],
         colors = colors,
         piece_list = piece_list,
@@ -245,7 +243,7 @@ def overallView(internalId= None):
     
     if not practice:
         practice = queryWorkoutData(workoutId)
-        meta = queryWorkoutMeta(workoutId)
+        meta = getWorkoutMeta(workoutId)
         unpickledWorkouts[workoutId] = practice, meta
 
     if not piece_num:
@@ -305,16 +303,19 @@ def workoutforseat():
     
     if not practice:
         practice = queryWorkoutData(workoutId)
-        meta = queryWorkoutMeta(workoutId)
+        meta = getWorkoutMeta(workoutId)
         unpickledWorkouts[workoutId] = practice, meta
+    checkIfTeam = getTeamInfo(meta['teamId'])
+    
     athlete_name = meta['athlete_list'][piece_num][seat_num]
-
+    athlete_db = getAthleteByName(athlete_name, meta['teamId'])
+    renders = athlete_db['renders']
     elite = practice['peach_data'][piece_num]
     if request.args.get('ad') is None:
         athDict = peachhelp.gen_athlete_dict(meta['athlete_list'])
         my_pieces = athDict[athlete_name]
-        return individual_workout(elite, seat_num, meta, False, piece_num, my_pieces)[0]
-    return individual_workout(elite, seat_num, meta, False, piece_num, None, True)[0]
+        return individual_workout(elite, renders, checkIfTeam['analysis'], seat_num, meta, False, piece_num, my_pieces)[0]
+    return individual_workout(elite, renders, checkIfTeam['analysis'], seat_num, meta, False, piece_num, None, True)[0]
 
   
 """ display an individual's portal for workout """
@@ -323,7 +324,7 @@ def workoutforseat():
 def myworkout(internalId = None):
     user = current_user
     # print(user)
-    athlete = queryAthlete(user._id)
+    athlete = getAthleteById(user._id)
 
     if internalId is not None:
         workoutId = internalId
@@ -334,8 +335,9 @@ def myworkout(internalId = None):
     
     if not practice:
         practice = queryWorkoutData(workoutId)
-        meta = queryWorkoutMeta(workoutId)
+        meta = getWorkoutMeta(workoutId)
         unpickledWorkouts[workoutId] = practice, meta
+    checkIfTeam = getTeamInfo(meta['teamId'])
 
     piece_num = request.args.get('piece')
 
@@ -354,16 +356,16 @@ def myworkout(internalId = None):
 
     seat_num = meta['athlete_list'][int(piece_num)].index(athlete['namestring'])
     
-    return seat_num, individual_workout(elite, seat_num, meta, internal, piece_num, my_pieces)
+    return seat_num, individual_workout(elite, athlete['renders'], checkIfTeam['analysis'], seat_num, meta, internal, piece_num, my_pieces)
 
 
 
-def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, piecers=None, ad=False):
+def individual_workout(elite, renders, analysis, seat_num, meta, internal = False, piece_num = 0, piecers=None, ad=False):
     npts = 100
 
     colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
 
-    ax, bx, cx, dx = peachhelp.generate_figs()
+    ax, bx, cx, dx = peachhelp.generate_figs(analysis)
     average_aper_data = elite.get_average_aper_data()
     
     seatMean = peachhelp.mean_module(elite, 100, seat_num)
@@ -371,33 +373,36 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
     
     with ThreadPoolExecutor() as executor:
     
-        resamp_future = executor.submit(peachhelp.resample_and_superimposed, elite, seat_num, npts, colors, ax, average_aper_data)
+        resamp_future = executor.submit(peachhelp.resample_and_superimposed, elite, renders, seat_num, npts, colors, ax, average_aper_data)
+        mean_ideal_future = executor.submit(peachhelp.mean_and_ideal, seatMean, analysis, ax, bx, dx)
         
-        mean_ideal_future = executor.submit(peachhelp.mean_and_ideal, seatMean, ax, bx, dx)
-        
+        if analysis:
+            dips_late_future = executor.submit(peachhelp.dips_and_late, elite.numseats, seat_num, bx, average_aper_data, seatMean)
+            
         rec_mean_future = executor.submit(peachhelp.recovery_and_mean, elite, seat_num, bx)
 
         splits_future = executor.submit(peachhelp.splits, elite, seat_num, cx)
 
-        dips_late_future = executor.submit(peachhelp.dips_and_late, elite.numseats, seat_num, bx, average_aper_data, seatMean)
 
 
     _ = resamp_future.result()
-    mathDict,sloppy_bladework,tail_off = mean_ideal_future.result()
     _ = rec_mean_future.result()
     _ = splits_future.result()
-    double_dips, late_placement = dips_late_future.result()
-
-    early_build = True
     
-    sudden_accel = False
+    if analysis:
+        mathDict,sloppy_bladework,tail_off = mean_ideal_future.result()
+        double_dips, late_placement = dips_late_future.result()
 
-    max_force_pct = average_aper_data[121+seat_num]
+        early_build = True
+        
+        sudden_accel = False
 
-    analysis_pts = peachhelp.tech_tree(early_build, max_force_pct, sloppy_bladework, tail_off,
-              double_dips, sudden_accel, late_placement, mathDict['work_first_half'], mathDict['work_second_half'])
+        max_force_pct = average_aper_data[121+seat_num]
 
-    peachhelp.render_analysis(dx, analysis_pts)
+        analysis_pts = peachhelp.tech_tree(early_build, max_force_pct, sloppy_bladework, tail_off,
+                double_dips, sudden_accel, late_placement, mathDict['work_first_half'], mathDict['work_second_half'])
+
+        peachhelp.render_analysis(dx, analysis_pts)
 
 
     ax[1].legend.click_policy = "hide"
@@ -405,12 +410,17 @@ def individual_workout(elite, seat_num, meta, internal = False, piece_num = 0, p
     cx[1].legend.click_policy = "hide"
     cx[0].legend.click_policy = "hide"
 
-    my_grid = grid([
-        [ax[0], ax[1], bx[0]],
-        [bx[1], cx[0], cx[1]],
-        [dx[0], dx[1], dx[2]]
-    ])
-
+    if analysis:
+        my_grid = grid([
+            [ax[0], ax[1], bx[0]],
+            [bx[1], cx[0], cx[1]],
+            [dx[0], dx[1], dx[2]]
+        ])
+    else:
+        my_grid = grid([
+            [ax[0], ax[1], bx[0]],
+            [bx[1], cx[0], cx[1]]
+        ])
     my_grid.sizing_mode = "scale_both"
 
     multi_piece = len(meta['piece_list']) > 1
@@ -445,17 +455,17 @@ def profile():
     # if loading another athlete, pass in the id as 'a'
     if request.args.get('a'):
         athleteId = request.args.get('a')
-        athlete = queryAthlete(athleteId)
+        athlete = getAthleteById(athleteId)
 
         # security check: is the req'd athlete on the same team?
-        viewerTeam = queryAthlete(user._id)['teamId']
+        viewerTeam = getAthleteById(user._id)['teamId']
         if viewerTeam != athlete['teamId']:
             return make_response(render_template('error.html'))
 
     # if no 'a', load the self's profile
     else:
         athleteId = user._id
-        athlete = queryAthlete(athleteId)
+        athlete = getAthleteById(athleteId)
 
     return render_template('profile.html', athlete=athlete)
 
@@ -468,7 +478,7 @@ def team():
         return redirect('/login')
     # print(user)
     athleteId = user._id
-    athlete = queryAthlete(athleteId)
+    athlete = getAthleteById(athleteId)
 
     if 'admin' not in athlete['permissions']:
         return render_template('error.html'), 500
@@ -477,7 +487,7 @@ def team():
 
 
     teamId = athlete['teamId']
-    teamName = queryTeam(teamId)['name']
+    teamName = getTeamInfo(teamId)['name']
     teammates = getAllAthletes(teamId)
     athDict = {}
     athList = []
@@ -488,7 +498,7 @@ def team():
             classId = int(teammate['class'])
         athlet = {'athleteId' : str(teammate['_id']), 'namestring': teammate['namestring'], 
                   'classId' : classId, 'side' : teammate['side'], 'active':teammate['active'], 
-                  'permissions' : teammate['permissions']}
+                  'permissions' : teammate['permissions'], 'renders': teammate['renders']}
         athDict[teammate['_id']] = athlet
         athList.append(athlet)
     form = TeamForm(data = {'athletes':athList})
@@ -556,7 +566,7 @@ def splitPieces():
         return render_template('error.html'), 500
 
     athleteId = user._id
-    athlete = queryAthlete(athleteId)
+    athlete = getAthleteById(athleteId)
 
     if 'admin' not in athlete['permissions'] and 'cox' not in athlete['permissions']:
         return render_template('error.html'), 500
