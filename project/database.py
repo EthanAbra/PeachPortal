@@ -230,14 +230,14 @@ def queryTeam(teamId, db = flaskdb):
         print(str(e))
         return None
 
-def addTeam(name, db = flaskdb):
+def addTeam(name, analysis, db = flaskdb):
     print(f'addTeam called with {name}')
     try:
         teamId = random.randint(10, 999999)
         while queryTeam(teamId):
             teamId = random.randint(10, 999999) 
 
-        res = db.teams.insert_one({'_id' : teamId, 'name' : name})
+        res = db.teams.insert_one({'_id' : teamId, 'name' : name, 'analysis':analysis})
         return int(res.inserted_id)
     except Exception as e:
         print(str(e))
