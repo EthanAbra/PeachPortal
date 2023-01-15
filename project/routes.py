@@ -6,10 +6,10 @@ from flask_login import current_user, login_required
 from . import peachhelp
 from flask import Blueprint, request, make_response, redirect, current_app
 from flask import render_template, current_app
-from .database import getAllAthletes, getAllWorkouts, queryWorkoutData, queryUnsplitMeta, queryAthlete
+from .database import getAllAthletes, getAllWorkouts, queryWorkoutData, queryUnsplitMeta, editTeam
 from .database import deleteWorkout, removeWorkoutFromAthlete, editAthlete, editWorkout, deleteUnsplit
 from .database import getAllUnsplits
-from . import socketio
+from . import socketio, cache
 import collections
 from concurrent.futures import ThreadPoolExecutor
 from .forms import TeamForm
@@ -487,7 +487,8 @@ def team():
 
 
     teamId = athlete['teamId']
-    teamName = getTeamInfo(teamId)['name']
+    teamInfo = getTeamInfo(teamId)
+    teamName = teamInfo['name']
     teammates = getAllAthletes(teamId)
     athDict = {}
     athList = []
@@ -501,7 +502,8 @@ def team():
                   'permissions' : teammate['permissions'], 'renders': teammate['renders']}
         athDict[teammate['_id']] = athlet
         athList.append(athlet)
-    form = TeamForm(data = {'athletes':athList})
+    print(teamInfo['analysis'])
+    form = TeamForm(data = {'athletes':athList, 'analysis':teamInfo['analysis']})
     
     if form.validate_on_submit():
         for athlete in form.athletes.data:
@@ -511,6 +513,9 @@ def team():
                 for field, val in athlete.items():
                     if athDict[int(thisId)][field] != val:
                         editAthlete(int(thisId), field, val)
+        if form.analysis.data != teamInfo['analysis']:
+            editTeam(teamId, 'analysis', form.analysis.data)
+            cache.delete_memoized(getTeamInfo, teamId)
         return redirect('/team')
 
     html= render_template('team.html', form = form, teamId=teamId, teamName=teamName)
