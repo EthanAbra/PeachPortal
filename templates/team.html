@@ -51,13 +51,20 @@
                     <form id='teamForm' action="/team" method="POST">
                     {{form.hidden_tag()}}
                     <div class="row">
-                        <div class="col-8">
+                        <div class="col-6">
                             <h3>{{teamName}}</h3>
                             <h5>Team id: {{teamId}}</h5>
                             <h5>Signup link: <a href="/signup?t={{teamId}}">www.peachrow.net/signup?t={{teamId}}</a></h5>
                         </div>
-                        <div class="col-4">
+                        <div class="col">
                             {{form.submit(class="btn btn-primary")}}
+                        </div>
+                        <div class="col">
+                            <label class="toggle" for="myToggle">
+                            <h5>Analysis:</h5>
+                            {{form.analysis(class="toggle__input", id="myToggle")}}
+                            <div class="toggle__fill"></div>
+                            </label>
                         </div>
                     </div>
                         <table class="table" style="height: 10%; overflow: scroll;">
@@ -68,7 +75,7 @@
                                 <th scope="col">Class</th>
                                 <th scope="col">Active</th>
                                 <th scope="col">Display Attributes</th>
-                                <th scope="col"><span style = "color: gray;">(Admin: edit team, Cox: see all workouts/curves, Default: only see own pieces in own workouts)</span> <br>Permissions</th>
+                                <th scope="col"><span style = "color: gray;">(Default: only see own pieces in own workouts)</span> <br>Permissions</th>
                               </tr>
                             </thead>
                                 <tbody>
@@ -78,7 +85,11 @@
                                     <th style="width: 35%;" scope="row">{{athlete.namestring(class = 'nameinput')}}</th>
                                     <th style="width: 15%;">{{athlete.side(class = 'selectpicker')}}</th>
                                     <th style="width: 10%;">{{athlete.classId(class = 'classinput')}}</th>
-                                    <th style="width: 5%;">{{athlete.active(class = 'activeinput')}}</th>
+                                    <th style="width: 5%;"><label class="toggle" for="myToggle{{loop.index}}">
+                                        {{athlete.active(class = 'toggle__input', id = "myToggle"~loop.index)}}
+                                        <div class="toggle__fill"></div>
+                                        </label>
+                                    </th>
                                     <th style="width: 15%;">{{athlete.renders(class = 'selectpicker')}}</th>
                                     <th style="width: 35%;">{{athlete.permissions(class = 'selectpicker')}}</th>
                                     </tr>
