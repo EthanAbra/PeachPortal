@@ -31,7 +31,8 @@ def write_complete(data):
 
 @socketio.on('valid-athletes')
 def valid_athletes(addedId, teamId, athleteMap):
-    return st_valid_athletes(addedId, teamId, athleteMap)
+    with app.app_context():
+        return st_valid_athletes(addedId, teamId, athleteMap)
     
 @socketio.on('write-complete-unsplit')
 def write_complete_unsplit(data):

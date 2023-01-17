@@ -242,6 +242,15 @@ def addTeam(name, analysis, db = flaskdb):
     except Exception as e:
         print(str(e))
         return None
+    
+def editTeam(teamId, field, newVal, db = flaskdb):
+    print(f'editTeam called with {teamId}, {field}, {newVal}')
+    try:
+        result = db.teams.update_one({'_id' : teamId}, {'$set' : {field : newVal}})
+        return result.modified_count
+    except Exception as e:
+        print(str(e))
+        return None
 
 # ------------------------------------------------------------------- #
 # takes a workout ID, gets all participating athletes, and adds that 
