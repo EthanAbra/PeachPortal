@@ -6,7 +6,9 @@
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">        
         <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}"> 
-
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}"> 
+        <script type="text/javascript" src="{{ url_for('static', filename='js/index.js') }}"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
         <title>PeachPortal</title>
     </head>
     <body >
@@ -35,12 +37,10 @@
             </div>
             </nav>
 
-            <div class="card" style="width: 100%;">
+            <div class="card" style=" width: 100%; background-color :  rgba(33,33,31,0)">
                 <div class="card-body" >
-                    <img class="card-img" style="opacity: 5%;" src="{{ url_for('static', filename='crest.svg')}}"/>
-                    <div class="card-img-overlay">
-                        <h1 style="text-align: center;">Welcome to PeachPortal</h1>
-                        <h3 style="text-align: center;">All your stroke data in one place</h3>
+                        <h1 style="text-align: center; color:whitesmoke;">Welcome to PeachPortal</h1>
+                        <h3 style="text-align: center; color:whitesmoke;">All your stroke data in one place</h3>
                         <div class="row" style="margin: 1rem;">
                             <div class="col">
                                 <a href="/login" class="btn btn-primary btn-block">Log in</a>
@@ -51,20 +51,18 @@
                                 <a href="/signup" class="btn btn-secondary btn-block">Sign up</a>
                             </div>
                             <div class="col-md-6 col-12">
-                                <a href="/register" class="btn btn-outline-secondary btn-block">Register your team</a>
+                                <a href="/register" class="btn btn-outline-light btn-block">Register your team</a>
                             </div>
-                        </div>
-                    </div>
-                    
+                        </div>                    
                 </div>
             </div>
-
-
         </div>
+        <div class='graphcontainer' id = svgBox>
+            <svg overflow = "visible" width = "200" height = "200" viewBox = "0 0 400 400" class="svg-container">
+              <g id='chart-container'></g>
+            </svg>
+        </div>    
 
-
-        <!--<script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>-->
     </body>
 </html>
 
-<!-- style='background-image:url("/static/crest.svg"); background-repeat:no-repeat; background-size:cover; opacity: 10%;' -->

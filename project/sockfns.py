@@ -1,12 +1,22 @@
 import os 
 import uuid
 from polyfile.magic import MagicMatcher
+from flask import current_app
 import random
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
 from concurrent.futures import ThreadPoolExecutor
 from .database import addWorkoutToAthlete, deleteWorkout, getCredentialsbyId, addCredentials, addAthlete, getAllAthletes, addUnsplit
+from dotenv import load_dotenv
+import pymongo
 
+
+load_dotenv()
+if 'database_url' not in os.environ:
+    CONNECTION_STRING = os.environ.get('database_url')
+else:
+    CONNECTION_STRING = os.environ['database_url']
+sockdb = pymongo.MongoClient(CONNECTION_STRING).peach
 
 def stsock(filename, size):
     _, ext = os.path.splitext(filename)
@@ -37,29 +47,29 @@ def mimewrap(serverfilename):
     return False
 
 def st_valid_athletes(addedId, teamId, athleteMap, bokehdb = None):
-    athDict = {}
-    for pieceIdx in range(len(athleteMap)):
-        for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
-            in_dict = athDict.get(piece_athlete,None)
-            if in_dict is not None:
-                pl, side = in_dict
-                pl.append(pieceIdx)
-                athDict[piece_athlete] = (pl,side)
-            else:
-                side = 'port' if paidx%2 != 0 else 'starboard'
-                athDict[piece_athlete] = ([pieceIdx], side)
-                
-    if len(athDict) :
-        with ThreadPoolExecutor() as executor:
-            athlete_futures = [executor.submit(process_athlete,addedId, teamId, bokehdb, athlete, athleteTuple) for athlete, athleteTuple in athDict.items()]
-        [future.result() for future in athlete_futures]
-        return True
-    else:
-        if bokehdb is not None:
-            deleteWorkout(addedId, bokehdb)
+        athDict = {}
+        for pieceIdx in range(len(athleteMap)):
+            for paidx, piece_athlete in enumerate(athleteMap[pieceIdx]):
+                in_dict = athDict.get(piece_athlete,None)
+                if in_dict is not None:
+                    pl, side = in_dict
+                    pl.append(pieceIdx)
+                    athDict[piece_athlete] = (pl,side)
+                else:
+                    side = 'port' if paidx%2 != 0 else 'starboard'
+                    athDict[piece_athlete] = ([pieceIdx], side)
+                    
+        if len(athDict) :
+            with ThreadPoolExecutor() as executor:
+                athlete_futures = [executor.submit(process_athlete,addedId, teamId, bokehdb, athlete, athleteTuple) for athlete, athleteTuple in athDict.items()]
+            [future.result() for future in athlete_futures]
+            return True
         else:
-            deleteWorkout(addedId)
-        return False
+            if bokehdb is not None:
+                deleteWorkout(addedId, bokehdb)
+            else:
+                deleteWorkout(addedId, sockdb)
+            return False
 
 def process_athlete(addedId, teamId, bokehdb, athlete, athleteTuple):
         athlete_piece_list, side = athleteTuple
@@ -71,7 +81,7 @@ def process_athlete(addedId, teamId, bokehdb, athlete, athleteTuple):
         if bokehdb is not None:
             allAthletes = getAllAthletes(teamId, 'name', False, bokehdb)
         else:
-            allAthletes = getAllAthletes(teamId)
+            allAthletes = getAllAthletes(teamId, 'name', False, sockdb)
 
         if allAthletes is None:
             allAthletes = []
@@ -88,26 +98,26 @@ def process_athlete(addedId, teamId, bokehdb, athlete, athleteTuple):
             if bokehdb is not None:
                 edited = addWorkoutToAthlete(athleteId, addedId, athlete_piece_list, bokehdb)
             else:
-                edited = addWorkoutToAthlete(athleteId, addedId, athlete_piece_list)
+                edited = addWorkoutToAthlete(athleteId, addedId, athlete_piece_list, sockdb)
         else: # we need to create a new athlete account for this individual
             error = ''
             newId = random.randint(10, 100000)
             if bokehdb is not None:
                 already_id = getCredentialsbyId(newId, bokehdb)
             else:
-                already_id = getCredentialsbyId(newId)
+                already_id = getCredentialsbyId(newId, sockdb)
             while already_id:
                 newId = random.randint(10, 100000)
                 if bokehdb is not None:
                     already_id = getCredentialsbyId(newId, bokehdb)
                 else:
-                    already_id = getCredentialsbyId(newId)
+                    already_id = getCredentialsbyId(newId, sockdb)
      
                 # add temporary login credentials to credentials DB
             if bokehdb is not None:
                 add = addCredentials(newId, athlete, "pwhash", "salt", bokehdb)
             else:
-                add = addCredentials(newId, athlete, "pwhash", "salt")
+                add = addCredentials(newId, athlete, "pwhash", "salt", sockdb)
             if not add:
                 error += 'failed to add user cred'
 
@@ -132,7 +142,7 @@ def process_athlete(addedId, teamId, bokehdb, athlete, athleteTuple):
             if bokehdb is not None:
                 add = addAthlete(athleteJson, bokehdb)
             else:
-                add = addAthlete(athleteJson)
+                add = addAthlete(athleteJson, sockdb)
             if not add:
                 error += "failed to add athlete"
                 
