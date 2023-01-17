@@ -70,6 +70,6 @@ def write_comp_process(userId, data, emitName):
         else:
             print(f'Sheet uploaded by {athlete["first"]} {athlete["last"]}. WorkoutId: {addedId}')
         socketio.emit(emitName,{'ack':True, 'serverfilename': data['serverfilename'], 'clientfilename': data['clientfilename'], 'addedId': addedId, 'teamId' :teamId, 'athleteList':workout['athlete_list']})
-
+        os.remove(data['serverfilename'])
 
 app = create_app(debug=True)
