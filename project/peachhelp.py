@@ -93,7 +93,6 @@ def helperMath(theta3, thetadot3):
     retDict['work_first_half'], retDict['work_second_half'] = workModule(theta3, thetadot3)
     return retDict
 
-
 def ideal_stroke_module(theta3, thetadot3):
     index_min_angle = min(range(len(theta3)), key=theta3.__getitem__)
 
@@ -189,7 +188,6 @@ def ideal_stroke_module(theta3, thetadot3):
 
 
 
-
 def plot_vector(vec, ax, label=None, label2 = None, color = "#084594", transparency = None, suppress_power = False, legend_title = ""):
     # split a vector into (theta, thetadot) and plot
     npts = len(vec) // 2
@@ -229,7 +227,6 @@ def plot_vector(vec, ax, label=None, label2 = None, color = "#084594", transpare
 
     ax[1].xaxis.axis_label='Gate Angle °'
     ax[1].yaxis.axis_label='Gate Angle Veclocity'
-
 
 
 
@@ -314,7 +311,6 @@ def plot_single(vec, ax, label=None, color = "#084594"):
         ax[1].yaxis.axis_label='Gate Force (N)'
 
     return mathDict
-
 
 
 def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", legend_title = ""):
@@ -527,7 +523,6 @@ def plot_degree_velocity(vec, ax, label=None, label2 = None, color = "#084594", 
     return sloppy_bladework, tail_off
 
 
-
 def plot_double_dip(bx, coordinates):
     polygons = []
     for coordIdx in range(0,len(coordinates), 2):
@@ -579,10 +574,6 @@ def generate_figs(analysis = True):
     
 
 
-
-
-
-
 def render_analysis(dx, analysis_pts):
     x = [5]*len(analysis_pts)
 
@@ -595,7 +586,6 @@ def render_analysis(dx, analysis_pts):
 
     dx[1].add_glyph(source, title)
     
-
 def gen_overall_plots(piece_num, athleteMap):
     ax = []
     for i in range(len(athleteMap[int(piece_num)])):
@@ -681,20 +671,20 @@ def splits(elite, seat_num, cx):
     for idx, one_split in enumerate(split):
         plot_splits(elite, seat_num, cx, idx, one_split)
         
+        
 def plot_individual(npts, piece_num, elite, colors, athleteMap, ax, stroke_nums, average_aper_data, peep):
     theta3 = []
     thetadot3 = []
     for s in range(1, elite.numstrokes):
-        dat3 = elite.resample_stroke(s, [0, peep+1,peep+1+elite.numseats], npts)
+        dat3 = elite.resample_stroke(s, [0, peep+elite.gate_angle_idx,peep+elite.gate_force_x_idx], npts)
         theta3 += [dat3[:,1]]
         thetadot3 += [dat3[:,2]]
         
-    plot_superimposed(elite.numseats, average_aper_data, elite.numstrokes, peep, colors, ax, theta3, thetadot3, peep)        
-    ax[-1].line(x = stroke_nums, y = elite.aper_data[:,1+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label=athleteMap[int(piece_num)][peep])
-            
+    plot_superimposed(elite, average_aper_data, elite.numstrokes, peep, colors, ax, theta3, thetadot3, peep)        
+    ax[-1].line(x = stroke_nums, y = elite.aper_data[:,elite.gate_angle_idx+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label=athleteMap[int(piece_num)][peep])
+    
 def recovery_and_mean(elite, seat_num, bx):
     boat_mean = mean_module(elite, 100)
-
     plot_vector(boat_mean, color = "#ba34eb", label = 'Boat Mean Stroke', suppress_power=True, label2='Boat Mean Recovery', ax = bx)
 
     if seat_num !=elite.numseats-1: # if not stroke seat
@@ -707,13 +697,12 @@ def resample_and_superimposed(elite, render, seat_num, npts, colors, ax, average
     thetadot3 = []
     time_resamp = []
     for s in range(1, elite.numstrokes):
-        dat3 = elite.resample_stroke(s, [0, seat_num+1,seat_num+1+elite.numseats], npts)
+        dat3 = elite.resample_stroke(s, [0, seat_num+elite.gate_angle_idx,seat_num+elite.gate_force_x_idx], npts)
         time_resamp += [dat3[:,0]]
         theta3 += [dat3[:,1]]
         thetadot3 += [dat3[:,2]]
     num_strokes = elite.numstrokes
-    plot_superimposed(elite.numseats, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, render=render)
-        
+    plot_superimposed(elite, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, render=render)
         
 def athlete_span(athlete_list, colors):
     totalspan = ""
@@ -729,7 +718,6 @@ def athlete_span(athlete_list, colors):
     return totalspan
 
 
-        
 def plot_boat_pwrinfo(elite, ax, stroke_nums, average_aper_data):
     boat_pow = elite.get_boat_power()
     
@@ -737,7 +725,10 @@ def plot_boat_pwrinfo(elite, ax, stroke_nums, average_aper_data):
 
     label = Label(x=elite.numstrokes//2-10, y=np.max(boat_pow), x_units='data', y_units = 'data', 
         text='Average Boat:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %
-        (np.mean(average_aper_data[1:1+elite.numseats]),np.mean(average_aper_data[1+2*elite.numseats:1+3*elite.numseats]), np.mean(average_aper_data[1+4*elite.numseats:1+5*elite.numseats]), np.mean(average_aper_data[1+15*elite.numseats:1+16*elite.numseats])),
+        (np.mean(average_aper_data[elite.swivel_power_idx:elite.swivel_power_idx+elite.numseats]),
+         np.mean(average_aper_data[elite.catch_slip_idx:elite.catch_slip_idx+elite.numseats]),
+         np.mean(average_aper_data[elite.finish_slip_idx:elite.finish_slip_idx+elite.numseats]),
+         np.mean(average_aper_data[elite.max_force_percentage_idx:elite.max_force_percentage_idx+elite.numseats])),
             border_line_color='black', border_line_alpha=.5,
             background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
             
@@ -745,18 +736,16 @@ def plot_boat_pwrinfo(elite, ax, stroke_nums, average_aper_data):
     ax[-1].add_layout(label)
     ax[-1].legend.click_policy="hide"
     
-    
 def plot_splits(elite, seat_num, cx, idx, one_split):
     split_mean = mean_module(elite, 100, seat_num, (one_split[0], one_split[1]))
     plot_vector(split_mean, ax=cx, color=Oranges9[idx], legend_title = "Stroke over Time",
         label="Stroke %d-%d, avg s/m: %.1f, avg W: %.1fW" 
         %(one_split[0]+1, one_split[1]+1, 
-        elite.get_average_aper_data(one_split)[1+16*elite.numseats], 
-        elite.get_average_aper_data(one_split)[1+seat_num]), 
+        elite.get_average_aper_data(one_split)[elite.rating_idx], 
+        elite.get_average_aper_data(one_split)[elite.gate_angle_idx+seat_num]), 
         label2 = "Stroke %d-%d, avg Max Force: %.2f%%" 
         %(one_split[0]+1, one_split[1]+1, 
-        elite.get_average_aper_data(one_split)[1+15*elite.numseats+seat_num]))
-    
+        elite.get_average_aper_data(one_split)[elite.max_force_percentage_idx+seat_num]))
     
     
 def mean_module(elite, npts, chosen_seat=None, chosen_range = None):
@@ -767,14 +756,14 @@ def mean_module(elite, npts, chosen_seat=None, chosen_range = None):
         numstrokes = elite.numstrokes
     if chosen_seat is not None:
         divisor = 1
-        cols = [chosen_seat+1, chosen_seat+1+elite.numseats, chosen_seat+1+2*elite.numseats]
+        cols = [chosen_seat+elite.gate_angle_idx, chosen_seat+elite.gate_force_x_idx, chosen_seat+elite.gate_angle_vel_idx]
         snapshots = np.zeros((len(cols)*npts, numstrokes))
         for s in range(numstrokes):
             dat = elite.resample_stroke(s, cols, npts)
             snapshots[:,s] = dat.flatten()
     else:
         divisor = elite.numseats
-        cols = np.array([1, 1+elite.numseats, 1+2*elite.numseats])
+        cols = np.array([elite.gate_angle_idx, elite.gate_force_x_idx, elite.gate_angle_vel_idx])
         snapshots = np.zeros((len(cols)*npts, elite.numseats*numstrokes))
         for s in range(numstrokes):
             for seat in range(elite.numseats):
@@ -782,11 +771,10 @@ def mean_module(elite, npts, chosen_seat=None, chosen_range = None):
                 ind = s*elite.numseats + seat
                 dat = elite.resample_stroke(s, cols, npts)
                 snapshots[:,ind] = dat.flatten()
-                cols = np.array([1, 1+elite.numseats, 1+2*elite.numseats])
+                cols = np.array([elite.gate_angle_idx, elite.gate_force_x_idx, elite.gate_angle_vel_idx])
     return snapshots.sum(1) / (divisor * numstrokes)
     
-    
-def dips_and_late(numseats, seat_num, bx, average_aper_data, seatMean):
+def dips_and_late(numseats, seat_num, bx, average_aper_data, seatMean, elite):
     theta = seatMean[::3]
     thetadot = seatMean[1::3]
     
@@ -796,11 +784,37 @@ def dips_and_late(numseats, seat_num, bx, average_aper_data, seatMean):
     late_placement = False
 
     if seat_num < numseats-1:
-        look_ahead_avg = np.mean(average_aper_data[1+5*numseats+seat_num+1:numseats*6+1])/200 # all seats ahead of seat_num catch time
-        if look_ahead_avg-average_aper_data[1+5*numseats+seat_num] <= .01 or average_aper_data[1+5*numseats+7]- average_aper_data[1+5*numseats+seat_num] <= .01:
+        look_ahead_avg = np.mean(average_aper_data[elite.drive_start_time_idx+seat_num+1:elite.drive_start_time_idx+elite.numseats])/200 # all seats ahead of seat_num catch time
+        if look_ahead_avg-average_aper_data[elite.drive_start_time_idx+seat_num] <= .01 or average_aper_data[elite.drive_start_time_idx+7]- average_aper_data[elite.drive_start_time_idx+seat_num] <= .01:
             late_placement = True
     return double_dips,late_placement    
 
+
+# need refactor
+def plot_superimposed(elite, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, peep = 0, render = None):
+    ax[peep].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*num_strokes + 0.2722, .02), color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
+    ax[peep].xaxis.axis_label='Gate Angle °'
+    ax[peep].yaxis.axis_label='Gate Force (N)'
+    if render is None:
+        text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %(average_aper_data[elite.swivel_power_idx+seat_num],
+                                                                                      average_aper_data[elite.catch_slip_idx+seat_num], 
+                                                                                      average_aper_data[elite.finish_slip_idx+seat_num], 
+                                                                                      average_aper_data[elite.max_force_percentage_idx+seat_num])
+    else:
+        text = ''
+        if 'power' in render:
+            text += 'Average\nPower: %.2f N\n' % average_aper_data[elite.swivel_power_idx+seat_num]
+        if 'slip' in render:
+            text += 'Slip: %.2f°\n' % average_aper_data[elite.catch_slip_idx+seat_num]
+        if 'wash' in render:
+            text += 'Wash: %.2f°\n' % average_aper_data[elite.finish_slip_idx+seat_num]
+        if 'percentage' in render:
+            text += 'Max Force: %.2f%%' % average_aper_data[elite.max_force_percentage_idx+seat_num]
+    label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
+        text=text,
+            border_line_color='black', border_line_alpha=.5,
+            background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
+    ax[peep].add_layout(label)
 
 def gen_indv_response(numseats, seat_num, meta, internal, piece_num, multi_piece, piece_loop, ad):
     response = ""
@@ -878,31 +892,7 @@ def gen_overall_response(numseats, internalId, piece_num, meta, multi_piece):
         response += '</ul> </div>'
     return response
 
-    
-def plot_superimposed(numseats, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, peep = 0, render = None):
-    ax[peep].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*num_strokes + 0.2722, .02), color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
-    ax[peep].xaxis.axis_label='Gate Angle °'
-    ax[peep].yaxis.axis_label='Gate Force (N)'
-    if render is None:
-        text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %(average_aper_data[1+seat_num],
-                                                                                      average_aper_data[1+2*numseats+seat_num], 
-                                                                                      average_aper_data[1+4*numseats+seat_num], 
-                                                                                      average_aper_data[1+15*numseats+seat_num])
-    else:
-        text = ''
-        if 'power' in render:
-            text += 'Average\nPower: %.2f N\n' % average_aper_data[1+seat_num]
-        if 'slip' in render:
-            text += 'Slip: %.2f°\n' % average_aper_data[1+2*numseats+seat_num]
-        if 'wash' in render:
-            text += 'Wash: %.2f°\n' % average_aper_data[1+4*numseats+seat_num]
-        if 'percentage' in render:
-            text += 'Max Force: %.2f%%' % average_aper_data[1+15*numseats+seat_num]
-    label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
-        text=text,
-            border_line_color='black', border_line_alpha=.5,
-            background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
-    ax[peep].add_layout(label)
+
     
 
 

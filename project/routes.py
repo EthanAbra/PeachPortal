@@ -377,7 +377,7 @@ def individual_workout(elite, renders, analysis, seat_num, meta, internal = Fals
         mean_ideal_future = executor.submit(peachhelp.mean_and_ideal, seatMean, analysis, ax, bx, dx)
         
         if analysis:
-            dips_late_future = executor.submit(peachhelp.dips_and_late, elite.numseats, seat_num, bx, average_aper_data, seatMean)
+            dips_late_future = executor.submit(peachhelp.dips_and_late, elite.numseats, seat_num, bx, average_aper_data, seatMean, elite)
             
         rec_mean_future = executor.submit(peachhelp.recovery_and_mean, elite, seat_num, bx)
 
@@ -397,7 +397,7 @@ def individual_workout(elite, renders, analysis, seat_num, meta, internal = Fals
         
         sudden_accel = False
 
-        max_force_pct = average_aper_data[121+seat_num]
+        max_force_pct = average_aper_data[elite.max_force_percentage_idx]
 
         analysis_pts = peachhelp.tech_tree(early_build, max_force_pct, sloppy_bladework, tail_off,
                 double_dips, sudden_accel, late_placement, mathDict['work_first_half'], mathDict['work_second_half'])
