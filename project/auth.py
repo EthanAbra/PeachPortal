@@ -74,7 +74,9 @@ def signup():
         side = form.side.data
         team = request.args.get('t')
         if not team:
-            team = form.teamId.data
+            team = int(form.teamId.data)
+        else:
+            team = int(team)
 
         salt = bcrypt.gensalt()
         pwhash = bcrypt.hashpw(password, salt)
