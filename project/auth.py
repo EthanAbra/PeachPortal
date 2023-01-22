@@ -14,8 +14,8 @@ from fuzzywuzzy import process
 from flask_mail import Message
 from threading import Thread
 import os
-from .forms import LoginForm, SignupForm, RegisterForm
-
+from .forms import LoginForm, SignupForm, RegisterForm, PasswordResetForm, ForgotPasswordForm
+from flask_jwt_extended import create_access_token, decode_token
 
 ca = certifi.where()
 
@@ -59,6 +59,16 @@ def logout():
     return res
 
 
+def verify_team_token(token):
+    try:
+        teamId = decode_token(token)['sub']
+        print(teamId)
+    except Exception as e:
+        print(e)
+        return False, -1
+    return True, teamId
+
+
 """ sign up a new user """
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -89,7 +99,11 @@ def signup():
         elif not checkIfTeam:
             flash(f'No team exists with id: {team}')
         else:
-            allAthletes = getAllAthletes(team)
+            allAthletes = list(getAllAthletes(team))
+            if len(allAthletes) == 0 and form.newTeam.data:
+                permissions = ['admin', 'cox']
+            else:
+                permissions = []
             already_here = None
             for existingAthlete in allAthletes:
                 if fuzz.token_sort_ratio(existingAthlete['namestring'], first + " " + last) >= 85:
@@ -106,7 +120,7 @@ def signup():
                         flash('failed. please try again')
                     else:
                         print(f'New user updated: {first} {last}, email: {email}, {side} side, {team} team')
-                        html = redirect('/home')
+                        html = redirect('/login')
                         return make_response(html)
                 else:
                     flash('Account already exists for this user. Try another email')
@@ -125,14 +139,13 @@ def signup():
                     flash('failed to add user')
                 else:
                     # create athlete document from entered info
-
                     athlete = {
                         "_id" : newId,
                         "first" : first,
                         "last" : last,
                         "namestring": first+ " " + last,
                         "renders": ['slip', 'wash', 'power', 'percentage'],
-                        "permissions" : [],
+                        "permissions" : permissions,
                         "workouts" : [],
                         "side" : side,
                         "class" : classYr,
@@ -146,11 +159,18 @@ def signup():
                         flash("failed to add user")
                     else:
                         print(f'New user registered: {first} {last}, email: {email}, {side} side, {team} team')
-                        html = redirect('/home')
+                        html = redirect('/login')
                         return make_response(html)
-    teamId = request.args.get('t')
-    if teamId:
-        form.teamId.data = int(teamId)
+    toke = request.args.get('toke')
+    if toke:
+        success, teamId = verify_team_token(toke)
+        if success:
+            form.teamId.data = teamId
+            form.newTeam.data = True
+    else:
+        teamId = request.args.get('t')
+        if teamId:
+            form.teamId.data = int(teamId)
     html = render_template('signup.html', form = form)
     return make_response(html)
 
@@ -164,10 +184,8 @@ def register():
         teamId = addTeam(name, False)
 
         print(f'New team added: {name}. id:{teamId}')
-        signupForm = SignupForm()
-        signupForm.teamId.data = teamId
-        html = render_template('signup.html', form = signupForm, newTeam=True, teamId=teamId)
-        return redirect(f'/signup?t={teamId}')
+        toke = create_access_token(identity = teamId, expires_delta = timedelta(hours = 24))
+        return redirect(f'/signup?toke={toke}')
 
     html = render_template('register.html', form=form)
     return make_response(html)
@@ -175,8 +193,9 @@ def register():
 
 @auth_bp.route('/forgotpassword', methods=['GET', 'POST'])
 def forgot_password():
-    if request.method == 'POST':
-        email = request.form['username']
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        email = form.email.data
 
         checkIfNewEmail = User.get_by_email(email)
 
@@ -184,32 +203,35 @@ def forgot_password():
             athlete = queryAthlete(checkIfNewEmail._id)
             token = checkIfNewEmail.get_reset_token()
             print(f'Forgot password for {email}')
-            msg = Message()
-            msg.subject = "[PeachPortal] Password Reset Link (expires in 24 hours)"
-            msg.recipients = [email]
-            msg.sender = 'noreply@mail.peachrow.net'
-            msg.body = ''
-            reset_url = url_for('auth_bp.new_password', email=email, token=token, _external=True)
-            msg.html = render_template('forgotpasswordemail.html', first = athlete['first'], reset_url = reset_url)
-            msg.attach('peach.png','image/png', open(os.path.join(os.getcwd(), 'static/peach.png'), 'rb').read(),
-                       'inline', headers=[['Content-ID','<PeachLogo>'],])
-            Thread(target=send_email, args=(current_app._get_current_object(), msg)).start()
+            if os.environ.get('ENV') == 'PRODUCTION':
+                msg = Message()
+                msg.subject = "[PeachPortal] Password Reset Link (expires in 24 hours)"
+                msg.recipients = [email]
+                msg.sender = 'noreply@mail.peachrow.net'
+                msg.body = ''
+                reset_url = url_for('auth_bp.new_password', email=email, token=token, _external=True)
+                msg.html = render_template('forgotpasswordemail.html', first = athlete['first'], reset_url = reset_url)
+                msg.attach('peach.png','image/png', open(os.path.join(os.getcwd(), 'static/peach.png'), 'rb').read(),
+                        'inline', headers=[['Content-ID','<PeachLogo>'],])
+                Thread(target=send_email, args=(current_app._get_current_object(), msg)).start()
 
         flash("Recovery email sent if email is in our database. Don't forget to check spam")
 
-    html = render_template('forgotpassword.html')
+    html = render_template('forgotpassword.html', form = form)
     return make_response(html)    
-
 
 @auth_bp.route('/resetverified', methods=['GET', 'POST'])
 def new_password():
     token = request.args.get('token')
     email = request.args.get('email')
 
+    form = PasswordResetForm()
 
-    if request.method == 'POST':
-        token = request.form['token']
-        new_password = bytes(request.form['pass'], 'utf-8')
+
+    if form.validate_on_submit():
+        token = form.passtoken.data
+        new_password = form.password.data.encode('utf-8')
+
         user = User.verify_reset_token(token)
 
         if user is not None:
@@ -228,6 +250,10 @@ def new_password():
             return redirect('/login')
         else:
             flash("Invalid token. Try another password reset link.")
+            return redirect('/login')
 
-    html = render_template('resetverified.html', token = token, email = email)
+    form.passtoken.data = token
+    form.email.data = email
+
+    html = render_template('resetverified.html', form=form)
     return make_response(html)    

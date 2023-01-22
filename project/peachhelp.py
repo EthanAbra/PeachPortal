@@ -7,6 +7,13 @@ from bokeh.plotting import figure
 from bokeh.palettes import Oranges9
 from bokeh.models import Label, PolyAnnotation, Text, Range1d, ColumnDataSource
 import warnings
+import pandas as pd
+from bokeh.models import ColumnDataSource
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from bokeh.models.widgets import DataTable, TableColumn, NumberFormatter, StringFormatter
+
+
+
 
 def posMult(num):
     if num >= 0:
@@ -594,6 +601,15 @@ def gen_overall_plots(piece_num, athleteMap):
     ax.append(figure(background_fill_color="#fafafa", sizing_mode="stretch_width"))
     return ax
 
+
+def gen_overall_plots_all_pieces(athleteSet):
+    ax = []
+    for i in athleteSet:
+        ax.append(figure(background_fill_color="#fafafa"))
+
+    ax.append(figure(background_fill_color="#fafafa", sizing_mode="stretch_width"))
+    return ax
+
 def tech_tree(early_build, max_force_pct, sloppy_bladework, tail_off, double_dips, sudden_accel, late_placement, work_first, work_second):
     analysis_pts = []
     
@@ -682,6 +698,69 @@ def plot_individual(npts, piece_num, elite, colors, athleteMap, ax, stroke_nums,
         
     plot_superimposed(elite, average_aper_data, elite.numstrokes, peep, colors, ax, theta3, thetadot3, peep)        
     ax[-1].line(x = stroke_nums, y = elite.aper_data[:,elite.gate_angle_idx+peep][:-1], line_color = colors[peep], line_join = 'bevel', line_width = 2, legend_label=athleteMap[int(piece_num)][peep])
+
+
+def plot_individual_all_pieces(npts, peachdata, colors, ax, peep, peepList, name):
+    theta3 = []
+    thetadot3 = []
+    numstrokes = 0
+    average_pow = 0
+    average_slip = 0
+    average_wash = 0
+    average_pct = 0
+    average_rec = 0
+    average_min = 0
+    average_max = 0
+    average_len = 0
+    average_effective = 0
+    table_pow = [None] * len(peachdata)
+    table_slip = [None] * len(peachdata)
+    table_wash = [None] * len(peachdata)
+    table_pct = [None] * len(peachdata)
+    table_rec = [None] * len(peachdata)
+    table_minmax = [None] * len(peachdata)
+    table_len = [None] * len(peachdata)
+    table_effective = [None] * len(peachdata)
+
+    
+    for eliteIdx, my_seat in peepList:
+        elite = peachdata[eliteIdx]
+        average_aper_data = elite.get_average_aper_data()
+        table_pow[eliteIdx] = (np.round(average_aper_data[elite.swivel_power_idx+my_seat], 2))
+        table_slip[eliteIdx] = (np.round(average_aper_data[elite.catch_slip_idx+my_seat], 2))
+        table_wash[eliteIdx] = (np.round(average_aper_data[elite.finish_slip_idx+my_seat], 2))
+        table_pct[eliteIdx] = (np.round(average_aper_data[elite.max_force_percentage_idx+my_seat], 2))
+        table_rec[eliteIdx] = (np.round(average_aper_data[elite.rec_time_idx+my_seat], 2))
+        table_minmax[eliteIdx] = str((np.round(average_aper_data[elite.min_ang_idx+my_seat], 1))) + '/' + str((np.round(average_aper_data[elite.max_ang_idx+my_seat], 1)))
+        table_len[eliteIdx] = np.round(average_aper_data[elite.max_ang_idx+my_seat] - average_aper_data[elite.min_ang_idx+my_seat], 2)
+        table_effective[eliteIdx] = table_len[eliteIdx] - table_slip[eliteIdx] - table_wash[eliteIdx] 
+        average_pow += average_aper_data[elite.swivel_power_idx+my_seat]
+        average_slip += average_aper_data[elite.catch_slip_idx+my_seat]
+        average_wash += average_aper_data[elite.finish_slip_idx+my_seat]
+        average_pct += average_aper_data[elite.max_force_percentage_idx+my_seat]
+        average_rec += average_aper_data[elite.rec_time_idx+my_seat]
+        average_min += average_aper_data[elite.min_ang_idx+my_seat]
+        average_max += average_aper_data[elite.max_ang_idx+my_seat]
+        average_len += table_len[eliteIdx]
+        average_effective += table_effective[eliteIdx]
+        numstrokes += elite.numstrokes
+        for s in range(1, elite.numstrokes):
+            dat3 = elite.resample_stroke(s, [0, my_seat+elite.gate_angle_idx,my_seat+elite.gate_force_x_idx], npts)
+            theta3 += [dat3[:,1]]
+            thetadot3 += [dat3[:,2]]
+    
+    table_pow.append(np.round(average_pow/len(peepList), 2))
+    table_slip.append(np.round(average_slip/len(peepList), 2))
+    table_wash.append(np.round(average_wash/len(peepList), 2))
+    table_pct.append(np.round(average_pct/len(peepList), 2))
+    table_rec.append(np.round(average_rec/len(peepList), 2))
+    table_minmax.append(str(np.round(average_min/len(peepList), 1)) + '/' + str(np.round(average_max/len(peepList), 1)))
+    table_effective.append(np.round(average_effective/len(peepList), 2))
+    table_len.append(np.round(average_len/len(peepList), 2))
+    
+    plot_superimposed_all_pieces(name, table_pow[-1], table_slip[-1], table_wash[-1], table_pct[-1], numstrokes, peep%len(colors), colors, ax, theta3, thetadot3, peep)  
+    return table_pow, table_slip, table_wash, table_pct, table_rec, table_effective, table_minmax, table_len, name      
+
     
 def recovery_and_mean(elite, seat_num, bx):
     boat_mean = mean_module(elite, 100)
@@ -790,7 +869,6 @@ def dips_and_late(numseats, seat_num, bx, average_aper_data, seatMean, elite):
     return double_dips,late_placement    
 
 
-# need refactor
 def plot_superimposed(elite, average_aper_data, num_strokes, seat_num, colors, ax, theta3, thetadot3, peep = 0, render = None):
     ax[peep].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*num_strokes + 0.2722, .02), color=colors[seat_num], legend_label = 'All Strokes Superimposed', line_join = 'bevel', line_width = 2)
     ax[peep].xaxis.axis_label='Gate Angle °'
@@ -815,6 +893,33 @@ def plot_superimposed(elite, average_aper_data, num_strokes, seat_num, colors, a
             border_line_color='black', border_line_alpha=.5,
             background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
     ax[peep].add_layout(label)
+    
+    
+def plot_superimposed_all_pieces(name, average_pow, average_slip, average_wash, average_pct, num_strokes, seat_num, colors, ax, theta3, thetadot3, peep = 0, render = None):
+    ax[peep].multi_line(xs = theta3, ys = thetadot3, line_alpha = max(-0.001111*num_strokes + 0.2722, .02), color=colors[seat_num], legend_label = name, line_join = 'bevel', line_width = 2)
+    ax[peep].xaxis.axis_label='Gate Angle °'
+    ax[peep].yaxis.axis_label='Gate Force (N)'
+    if render is None:
+        text='Average:\nPower: %.2f N\nSlip: %.2f°\nWash: %.2f°\nMax Force: %.2f%%' %(average_pow,
+                                                                                      average_slip,
+                                                                                      average_wash,
+                                                                                      average_pct)
+    else:
+        text = ''
+        if 'power' in render:
+            text += 'Average\nPower: %.2f N\n' % average_pow
+        if 'slip' in render:
+            text += 'Slip: %.2f°\n' % average_slip
+        if 'wash' in render:
+            text += 'Wash: %.2f°\n' % average_wash
+        if 'percentage' in render:
+            text += 'Max Force: %.2f%%' % average_pct
+    label = Label(x=np.min(theta3), y=np.min(thetadot3), x_units='data', y_units = 'data', 
+        text=text,
+            border_line_color='black', border_line_alpha=.5,
+            background_fill_color='#fafafa', background_fill_alpha=0, text_color = '#0096FF')
+    ax[peep].add_layout(label)    
+
 
 def gen_indv_response(numseats, seat_num, meta, internal, piece_num, multi_piece, piece_loop, ad):
     response = ""
@@ -872,14 +977,23 @@ def gen_overall_response(numseats, internalId, piece_num, meta, multi_piece):
                     response += ' active" role = "button" aria-pressed = "true'
                 response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(num) + '" hx-target = "#raw">' + piece + '</button>' 
                 response += '</li>'
+            response +=  '<li class="nav-item">'  
+            response += '<button class="btn btn-outline-info'
+            if piece_num == -1:
+                response += ' active" role = "button" aria-pressed = "true'
+            response +=  '" hx-post= "/workoutoverallpieces?w=' + str(meta['_id']) + '" hx-target = "#raw">All Pieces Combined</button>' 
+            response += '</li>'
             response += '</ul> </div>'
 
         
         response += '<div id = "seatlist" hx-swap-oob = "true"> <ul class="navbar-nav mr-auto"> <li class="nav-item"> <button class="btn btn-outline-primary active" role = "button" aria-pressed = "true'
         if multi_piece: 
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + piece_num + 'ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
+            if piece_num == -1:
+                response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=0&ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
+            else:
+                response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&piece=' + str(piece_num) + 'ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
         else:
-            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + 'ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
+            response +=  '" hx-post= "/workoutoverall?w=' + str(meta['_id']) + '&ad=1" hx-target = "#raw">' + "Overall View" + '</button>' 
         response += '</li>'
         for num in range(numseats):
             response +=  '<li class="nav-item">'  
@@ -887,12 +1001,88 @@ def gen_overall_response(numseats, internalId, piece_num, meta, multi_piece):
             if not multi_piece:
                 response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&ad=1" hx-target = "#raw">' + "Seat " + str(num+1) + " Details" + '</button>'
             else:
-                response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + piece_num + '&ad=1" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
+                if piece_num == -1:
+                    response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=0&ad=1" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
+                else:
+                    response +=  ' hx-post= "/workoutseat?w=' + str(meta['_id']) + '&s='+str(num) + '&piece=' + str(piece_num) + '&ad=1" hx-target = "#raw">' + "Seat " + str(num+1) +  " Details" + '</button>' 
             response += '</li>'
         response += '</ul> </div>'
     return response
 
 
+
+def generate_tables(npts, practice, colors, athleteMap, athDict, ax):
+    with ThreadPoolExecutor() as executor:
+        seat_futures = [executor.submit(plot_individual_all_pieces, npts, practice['peach_data'], colors, ax, peep, athDict[peepName], peepName) for peep, peepName in enumerate(athDict.keys())]
+    
+    sliplist = []
+    washlist = []
+    powerlist = []
+    forcelist = []
+    
+    for i in range(len(athleteMap)):
+        sliplist.append('Slip #' + str(i+1))
+        washlist.append('Wash #' + str(i+1))
+        powerlist.append('Power #' + str(i+1))
+        forcelist.append('Max F % #' + str(i+1))
+        
+    sliplist.append('Slip Avg')
+    washlist.append('Wash Avg')
+    powerlist.append('Pwr Avg')
+    forcelist.append('Max F % Avg')
+    
+    columns = ['Athlete']
+    
+    columns += sliplist + washlist + powerlist + forcelist
+    alldata = []
+    alldata2 = []
+    
+    for fut in as_completed(seat_futures):
+        powr,slip,wash,pct, rec, effect, minmax, leng, name = fut.result()
+        tdata = [name]+slip+wash+powr+pct
+        alldata.append(tdata)
+        tdata = [name] + rec + leng+ effect + minmax
+        alldata2.append(tdata)
+        
+    
+    alldf = pd.DataFrame(
+        data=alldata,
+        columns=columns
+    )
+    columnars = [TableColumn(field='Athlete', title='Athlete')]
+    columnars += [TableColumn(field=Ci, title=Ci, formatter = NumberFormatter(format = '0.0', nan_format = '-')) for Ci in alldf.columns[1:]] # bokeh columns
+    data_table = DataTable(columns=columnars, source=ColumnDataSource(alldf),  sizing_mode = "stretch_width", index_position=None, index_header='', header_row=True)
+
+    reclist = []
+    minmaxlist = []
+    lengthlist = []
+    effectivelist = []
+    
+    for i in range(len(athleteMap)):
+        reclist.append('Rec(s) #' + str(i+1))
+        minmaxlist.append('Min/Max #' + str(i+1))
+        lengthlist.append('Length #' + str(i+1))
+        effectivelist.append('Effective #' + str(i+1))
+        
+    reclist.append('Rec(s) Avg')
+    minmaxlist.append('Min/Max Avg')
+    lengthlist.append('Length Avg')
+    effectivelist.append('Effective Avg')
+    
+    columns2 = ['Athlete']
+    
+    columns2 += reclist + lengthlist + effectivelist + minmaxlist
+    
+    alldf = pd.DataFrame(
+        data=alldata2,
+        columns=columns2
+    )
+    
+    columnars = [TableColumn(field='Athlete', title='Athlete')]
+    columnars += [TableColumn(field=Ci, title=Ci, formatter = NumberFormatter(format = '0.0', nan_format = '-')) for Ci in alldf.columns[1:len(columns2)-len(minmaxlist)]] # bokeh columns
+    columnars += [TableColumn(field=Ci, title=Ci, formatter = StringFormatter()) for Ci in alldf.columns[len(columns2)-len(minmaxlist):]] # bokeh columns
+    data_table2 = DataTable(columns=columnars, source=ColumnDataSource(alldf),  sizing_mode = "stretch_width", index_position=None, index_header='', header_row=True)
+    return data_table,data_table2
     
 
 

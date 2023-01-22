@@ -81,6 +81,11 @@
                     {%endif%}
                     {%endif%}
                     {%endfor%}
+                    {% if isAdmin %}
+                    <li class = "nav-item">
+                        <button class="btn btn-outline-info" hx-post= "/workoutoverallpieces?w={{workout['_id']}}" hx-target = "#raw">All Pieces Combined</button>  
+                    </li>
+                    {%endif%}
                     </ul>
                     </div>
                 </div> 

@@ -8,7 +8,7 @@ from flask import Blueprint, request, make_response, redirect, current_app
 from flask import render_template, current_app
 from .database import getAllAthletes, getAllWorkouts, queryWorkoutData, queryUnsplitMeta, editTeam
 from .database import deleteWorkout, removeWorkoutFromAthlete, editAthlete, editWorkout, deleteUnsplit
-from .database import getAllUnsplits
+from .database import getAllUnsplits, queryAthlete
 from . import socketio, cache
 import collections
 from concurrent.futures import ThreadPoolExecutor
@@ -101,7 +101,7 @@ def delete():
         return redirect('/login')
 
     # print(user)
-    athlete = getAthleteById(user._id)
+    athlete = queryAthlete(user._id)
     
 
     workoutId = request.args.get('wid')
@@ -282,7 +282,49 @@ def overallView(internalId= None):
     return response + '<div id = "overall">' + div+script + '<div>'
 
 
+@main_bp.route('/workoutoverallpieces', methods = ['POST'])
+@login_required
+def workoutoverallpieces():
+    npts = 100
 
+    workoutId = request.args.get('w')
+
+    practice, meta = unpickledWorkouts.get(workoutId, (None, None))
+    
+    if not practice:
+        practice = queryWorkoutData(workoutId)
+        meta = getWorkoutMeta(workoutId)
+        unpickledWorkouts[workoutId] = practice, meta
+
+    colors = ['#ffe119', '#3cb44b', '#f58231', '#dcbeff', '#800000', '#000075', '#a9a9a9', '#f032e6', '#aaffc3']
+
+    
+    athleteMap = meta['athlete_list']
+   
+    athDict = peachhelp.gen_athlete_dict(meta['athlete_list'])  
+
+    ax = peachhelp.gen_overall_plots_all_pieces(athDict.keys())
+    
+    data_table, data_table2 = peachhelp.generate_tables(npts, practice, colors, athleteMap, athDict, ax)
+
+    
+
+    my_grid = layout([
+        gridplot(children = ax[0:len(athDict.keys())], ncols=4),
+        data_table,
+        data_table2
+    ])
+    
+    
+    script, div = components(my_grid)
+
+    multi_piece = True
+
+    response = peachhelp.gen_overall_response(len(athleteMap[0]), False, -1, meta, multi_piece)
+
+    script, div = components(my_grid)
+    
+    return response + '<div id = "overall">' + div+script + '<div>'
 
 
 @main_bp.route('/workoutseat', methods = ['POST'])
@@ -513,6 +555,8 @@ def team():
                 for field, val in athlete.items():
                     if athDict[int(thisId)][field] != val:
                         editAthlete(int(thisId), field, val)
+                cache.delete_memoized(getAthleteById, int(athlete['athleteId']))
+                
         if form.analysis.data != teamInfo['analysis']:
             editTeam(teamId, 'analysis', form.analysis.data)
             cache.delete_memoized(getTeamInfo, teamId)

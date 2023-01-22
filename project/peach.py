@@ -117,6 +117,19 @@ class PeachData():
         return np.where(self.aper_headers == 'Average Power')[0][0]
     
     @property
+    def rec_time_idx(self):
+        return np.where(self.aper_headers == 'Recovery Time')[0][0]   
+    
+    @property
+    def min_ang_idx(self):
+        return np.where(self.aper_headers == 'MinAngle')[0][0] 
+    
+    @property
+    def max_ang_idx(self):
+        return np.where(self.aper_headers == 'MaxAngle')[0][0]
+    
+    
+    @property
     def gate_angle_idx(self):
         return np.where(self.headers == 'GateAngle')[0][0]
     
@@ -128,7 +141,6 @@ class PeachData():
     def gate_angle_vel_idx(self):
         return np.where(self.headers == 'GateAngleVel')[0][0]
             
-
     def __ind(self, time):
         return (time - self.t0) // self.dt
     
