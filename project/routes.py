@@ -1,4 +1,4 @@
-from bokeh.layouts import layout, grid, gridplot
+from bokeh.layouts import layout, grid, gridplot, row
 from bokeh.embed import components, server_document
 from bokeh.resources import INLINE
 import os
@@ -307,8 +307,6 @@ def workoutoverallpieces():
     
     data_table, data_table2 = peachhelp.generate_tables(npts, practice, colors, athleteMap, athDict, ax)
 
-    
-
     my_grid = layout([
         gridplot(children = ax[0:len(athDict.keys())], ncols=4),
         data_table,
@@ -555,7 +553,7 @@ def team():
                 for field, val in athlete.items():
                     if athDict[int(thisId)][field] != val:
                         editAthlete(int(thisId), field, val)
-                cache.delete_memoized(getAthleteById, int(athlete['athleteId']))
+                cache.delete_memoized(getAthleteById, athDict[int(thisId)])
                 
         if form.analysis.data != teamInfo['analysis']:
             editTeam(teamId, 'analysis', form.analysis.data)
