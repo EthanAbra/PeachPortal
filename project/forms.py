@@ -18,6 +18,7 @@ class LoginForm(FlaskForm):
     
     
 class SignupForm(FlaskForm):
+    newTeam = HiddenField('NewTeam')
     first = StringField('First Name',
             validators=[DataRequired()])
     last = StringField('Last Name',
@@ -57,4 +58,19 @@ class RegisterForm(FlaskForm):
     submit = SubmitField('Register Team')
     teamName = StringField('Team Name',
             validators=[DataRequired()])
+    
+    
+class PasswordResetForm(FlaskForm):
+    passtoken = HiddenField('PassToken')
+    submit = SubmitField('Set New Password')
+    email = StringField('Email', render_kw={'readonly': True})
+    password = PasswordField('Password', validators=[DataRequired(),  
+                                                    Length(min=8, message='Password should be at least %(min)d characters long')])
+    confirm = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password', message='Passwords must match')])
+
+class ForgotPasswordForm(FlaskForm):
+    submit = SubmitField('Send Password Reset Email')
+    email = StringField('Email',
+            validators=[DataRequired(), Length(1, 120), Email()])
+
     

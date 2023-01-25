@@ -7,7 +7,6 @@ from bson.binary import Binary
 import pickle
 import random
 from .peach import PeachData
-from .slimpeach import SlimPeach
 import pandas as pd
 import json
 import xmltodict
@@ -104,7 +103,7 @@ def xlsxReadUnsplit(filename):
     parsed = read_excel(filename, 1)
 
     try:
-        data = SlimPeach(parsed)
+        data = PeachData(parsed)
     except Exception as e:
         print(e)
         return False, "Powerline File is formatted incorrectly"

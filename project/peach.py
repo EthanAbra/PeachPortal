@@ -26,7 +26,7 @@ class PeachData():
                 athletes_stop = np.flatnonzero(df[0]=='Cox')[0]
             else:
                 athletes_stop = np.flatnonzero(df[0]=='Coach')[0]
-            self.athlete_map = df.iloc[athletes_start+1: athletes_stop+1, 1].dropna().to_numpy(copy=True)
+            self.athlete_map = df.iloc[athletes_start+1: athletes_stop, 1].dropna().to_numpy(copy=True)
             
 
             self.date = parser.parse(df.iloc[2, 3])
@@ -49,6 +49,7 @@ class PeachData():
             self.data = df.iloc[per_start+3:].dropna(axis=1, how='all').to_numpy(dtype=float, copy=True)
             self.t0 = int(self.data[0,0])  # initial time
             self.dt = 20  # timestep, in milliseconds
+            
         except Exception as e:
             print(e)
             return e
@@ -78,7 +79,68 @@ class PeachData():
     @property
     def numseats(self):
         return len(self.athlete_map)
-
+    
+    @property
+    def swivel_power_idx(self):
+        return np.where(self.aper_headers == 'SwivelPower')[0][0]
+    
+    @property
+    def min_angle_idx(self):
+        return np.where(self.aper_headers == 'MinAngle')[0][0]
+    
+    @property
+    def catch_slip_idx(self):
+        return np.where(self.aper_headers == 'CatchSlip')[0][0]
+    
+    @property
+    def max_angle_idx(self):
+        return np.where(self.aper_headers == 'MaxAngle')[0][0]
+    
+    @property
+    def finish_slip_idx(self):
+        return np.where(self.aper_headers == 'FinishSlip')[0][0]
+    
+    @property
+    def drive_start_time_idx(self):
+        return np.where(self.aper_headers == 'Drive Start T')[0][0]
+    
+    @property
+    def max_force_percentage_idx(self):
+        return np.where(self.aper_headers == 'Max Force PC')[0][0]
+    
+    @property
+    def rating_idx(self):
+        return np.where(self.aper_headers == 'Rating')[0][0]
+    
+    @property 
+    def boat_power_idx(self):
+        return np.where(self.aper_headers == 'Average Power')[0][0]
+    
+    @property
+    def rec_time_idx(self):
+        return np.where(self.aper_headers == 'Recovery Time')[0][0]   
+    
+    @property
+    def min_ang_idx(self):
+        return np.where(self.aper_headers == 'MinAngle')[0][0] 
+    
+    @property
+    def max_ang_idx(self):
+        return np.where(self.aper_headers == 'MaxAngle')[0][0]
+    
+    
+    @property
+    def gate_angle_idx(self):
+        return np.where(self.headers == 'GateAngle')[0][0]
+    
+    @property 
+    def gate_force_x_idx(self):
+        return np.where(self.headers == 'GateForceX')[0][0]
+    
+    @property
+    def gate_angle_vel_idx(self):
+        return np.where(self.headers == 'GateAngleVel')[0][0]
+            
     def __ind(self, time):
         return (time - self.t0) // self.dt
     
@@ -134,7 +196,7 @@ class PeachData():
         return np.mean(resampeds, axis=0)
 
     def get_boat_power(self):
-        return self.aper_data[:,1+16*self.numseats+4][:-1]
+        return self.aper_data[:,self.boat_power_idx][:-1]
 
     def get_date(self):
         return self.date
@@ -159,7 +221,7 @@ class PeachData():
             return np.mean(self.aper_data, axis=0)
 
     def get_rating_chunks(self):
-        event = self.aper_data[:,1+16*self.numseats][:-1]
+        event = self.aper_data[:,self.rating_idx][:-1]
         event = list(zip(event, list(range(len(event)))))
         event.sort(key = lambda y: y[0])
         delta_t = 2

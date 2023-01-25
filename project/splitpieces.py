@@ -28,11 +28,10 @@ else:
 bokehdb = pymongo.MongoClient(CONNECTION_STRING).peach
 
 
-def processPieces(unsplitId, unsplitDicts, teamId):
+def processPieces(elite, unsplitId, unsplitDicts, teamId):
     meta = queryUnsplitMeta(unsplitId, bokehdb)
     
-    parsed = read_excel(meta['serverfilename'], 1)
-    bigPeach = PeachData(parsed)
+    bigPeach = elite
     
 
     big_start_times = bigPeach.start_times
@@ -86,7 +85,6 @@ def processPieces(unsplitId, unsplitDicts, teamId):
         print('successfull add')
         if st_valid_athletes(addedId, teamId, athlete_map, bokehdb): 
             print('sucessfully attributed')
-            os.remove(meta['serverfilename'])
             deleteUnsplit(unsplitId, bokehdb)
             return addedId
 
@@ -235,7 +233,7 @@ def my_gui(doc):
             retDict['title'] = item[1].value
             retDict['athlete_map'] =  [x[0].value for x in item[2]._property_values['children']]
             pieceArr.append(retDict)
-        addedId = processPieces(unsplitId, pieceArr, str(int(args.get('teamId')[0])))
+        addedId = processPieces(elite, unsplitId, pieceArr, str(int(args.get('teamId')[0])))
         
         js_code = f"""
                 window.location.replace("../workout?w={addedId}");

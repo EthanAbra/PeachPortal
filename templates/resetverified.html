@@ -37,31 +37,30 @@
 
             <div class="card" style="width: 100%;">
                 <div class="card-body">
-                    <h1 style="text-align: right;">Log in</h1>
-                    {% with messages = get_flashed_messages() %}
-                    {% if messages %}
-                        <ul class=flashes>
-                        {% for message in messages %}
-                        <div class="alert alert-danger" role="alert"> {{message}} </div>
-                        {% endfor %}
-                        </ul>
-                    {% endif %}
-                    {% endwith %}
-                    <form action="" method="POST" oninput='confpass.setCustomValidity(pass.value != confpass.value ? "Passwords do not match." : "")'>
-                        <input type = "hidden" id = "token" name = "token" value = "{{token}}">
+                    <h1 style="text-align: right;">Set New Password</h1>
+                    {% for field, errors in form.errors.items() %}
+                    {%for error in errors%}
+                    <div class = 'alert alert-danger' role = 'alert'>{{error}}</div>
+                    {% endfor %}
+                    {% endfor %}
+                    {% block content%}
+                    <form id='passResetForm' action="/register" method="POST">
+                        {{form.hidden_tag()}}
                         <div class="form-group">
-                          <input type="email" id= "emailForm" class="form-control" name="username" value="{{email}}" readonly>
+                          {{form.email.label(class="form-label")}}
+                          {{form.email(class="form-control")}}
                         </div>
                         <div class="form-group">
-                          <label for="passwordForm">Password</label>
-                          <input type="password" class="form-control" name="pass" id="passwordForm">
+                          <label for="passwordForm">{{form.password.label}}</label>
+                          {{form.password(class="form-control")}}
                         </div>
                         <div class="form-group">
-                            <label for="passwordForm">Confirm Password</label>
-                            <input type="password" class="form-control" name="confpass" id="passwordForm">
+                            <label for="passwordForm">{{form.confirm.label}}</label>
+                            {{form.confirm(class="form-control")}}
                           </div>
-                        <button type="submit" class="btn btn-primary">Set New Password</button>
+                        {{form.submit(class="btn btn-primary")}}
                     </form>
+                    {% endblock %}
                 </div>
             </div>
             
